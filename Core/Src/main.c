@@ -18,11 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "app_filex.h"
 #include "app_usbx.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "OLED.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,6 +44,10 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+RNG_HandleTypeDef hrng;
+
+SD_HandleTypeDef hsd1;
+
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim2;
@@ -52,7 +57,15 @@ UART_HandleTypeDef huart1;
 PCD_HandleTypeDef hpcd_USB_DRD_FS;
 
 /* USER CODE BEGIN PV */
-
+extern FontDef Font_7x10;
+extern FontDef Font_11x18;
+extern FontDef Font_16x26;
+extern const uint8_t logo_ITWL[];
+extern const int logo_ITWL_width;
+extern const int logo_ITWL_height;
+char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
+uint32_t nCzasRolki1[ROZMIAR_BUF_POMIAROW];	//wartość czasu przechwycona przez timer przy aktywacji czujnika rolki1
+uint32_t nCzasRolki2[ROZMIAR_BUF_POMIAROW];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,6 +78,8 @@ static void MX_SPI3_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USB_PCD_Init(void);
+static void MX_RNG_Init(void);
+static void MX_SDMMC1_SD_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -112,13 +127,24 @@ int main(void)
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   MX_USB_PCD_Init();
+  MX_RNG_Init();
+  MX_SDMMC1_SD_Init();
+  MX_FileX_Init();
   MX_USBX_Init();
   /* USER CODE BEGIN 2 */
-
+  OLED_Init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  //Podczas uruchomienia wyświetl logo przez sekudę
+    RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width)/2, 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
+    OLED_OdswiezEkran();
+    HAL_Delay(1000);
+    OLED_CzyśćBuforEkranu();
+    //OLED_RysujNapis("Tmierz  Tzad  Wyj", 0, 8, &Font_7x10);	//nagłówek
+
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -126,6 +152,45 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	  HAL_Delay(100);
+	  OLED_CzyśćBuforEkranu();
+
+	  float fPredkość = 0.0f;
+	  float fDrogaRolki = 0.0f;
+	  float fCzasRolki = 0.0f;
+	  uint32_t nLiczbaLosowa;
+	  uint8_t cPozY;
+	  float fWspSkaliY = (float)OLED_WYSOKOSC / 1.6f;
+
+	  //symuluj strzał z wyrzutni
+	  for (uint16_t n=0; n<ROZMIAR_BUF_POMIAROW; n++)
+	  {
+
+		  fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwięszaj prędkość o zadane przyspieszenie
+		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
+		  fPredkość += ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
+		  fDrogaRolki += (float)OBWOD_ROLKI / 1000;
+		  fCzasRolki += ((float)OBWOD_ROLKI / 1000) / fPredkość;
+		  nCzasRolki1[n] = fCzasRolki * 1000000;	//czas w mikrosekundach
+	  }
+
+	  //rysuj wykres prędkości wózka
+	  for (uint8_t cX=0; cX<ROZMIAR_BUF_POMIAROW; cX++)
+	  {
+		  fPredkość = (float)nCzasRolki1[cX] / 1000000;
+		  cPozY = OLED_WYSOKOSC - fPredkość * fWspSkaliY;
+
+		  OLED_RysujPiksel(cX, cPozY, 1);
+	  }
+
+	  sprintf(cBuforNapisów, "V  =%.2f  ", fPredkość);
+	  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
+
+  	  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
+  	  OLED_RysujNapis("m", 110, 45-3, &Font_7x10);
+  	  OLED_RysujNapis("s", 110, 45+8, &Font_7x10);
+  	  OLED_RysujLiniePoziomą(110, 45+7, 7);				//kreska ułamka jednostki [m/s]
+	  OLED_OdswiezEkran();
+
   }
   /* USER CODE END 3 */
 }
@@ -148,8 +213,10 @@ void SystemClock_Config(void)
 
   /** Initializes the CPU, AHB and APB buses clocks
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_MSIK;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE
+                              |RCC_OSCILLATORTYPE_MSIK;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.MSIKState = RCC_MSI_ON;
   RCC_OscInitStruct.MSIKSource = RCC_MSI_RC0;
   RCC_OscInitStruct.MSIKDiv = RCC_MSI_DIV2;
@@ -280,6 +347,65 @@ static void MX_ICACHE_Init(void)
   /* USER CODE BEGIN ICACHE_Init 2 */
 
   /* USER CODE END ICACHE_Init 2 */
+
+}
+
+/**
+  * @brief RNG Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RNG_Init(void)
+{
+
+  /* USER CODE BEGIN RNG_Init 0 */
+
+  /* USER CODE END RNG_Init 0 */
+
+  /* USER CODE BEGIN RNG_Init 1 */
+
+  /* USER CODE END RNG_Init 1 */
+  hrng.Instance = RNG;
+  hrng.Init.ClockErrorDetection = RNG_CED_ENABLE;
+  if (HAL_RNG_Init(&hrng) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN RNG_Init 2 */
+
+  /* USER CODE END RNG_Init 2 */
+
+}
+
+/**
+  * @brief SDMMC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SDMMC1_SD_Init(void)
+{
+
+  /* USER CODE BEGIN SDMMC1_Init 0 */
+	if (HAL_GPIO_ReadPin(CD_GPIO_Port, CD_Pin) == GPIO_PIN_SET)		//jeżeli nie ma karty to pomiń inicjalizację
+		return;
+  /* USER CODE END SDMMC1_Init 0 */
+
+  /* USER CODE BEGIN SDMMC1_Init 1 */
+
+  /* USER CODE END SDMMC1_Init 1 */
+  hsd1.Instance = SDMMC1;
+  hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+  hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+  hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
+  hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+  hsd1.Init.ClockDiv = 0;
+  if (HAL_SD_Init(&hsd1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SDMMC1_Init 2 */
+
+  /* USER CODE END SDMMC1_Init 2 */
 
 }
 
@@ -531,36 +657,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(CD_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC8 PC9 PC10 PC11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF12_SDMMC1;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
   /*Configure GPIO pin : D_C_Pin */
   GPIO_InitStruct.Pin = D_C_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(D_C_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PC12 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF12_SDMMC1;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PD2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF12_SDMMC1;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
