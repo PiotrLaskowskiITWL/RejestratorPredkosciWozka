@@ -24,6 +24,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "OLED.h"
+#include "KartaSD.h"
+#include "KodyBledow.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +68,11 @@ extern const int logo_ITWL_height;
 char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 uint32_t nCzasRolki1[ROZMIAR_BUF_POMIAROW];	//wartość czasu przechwycona przez timer przy aktywacji czujnika rolki1
 uint32_t nCzasRolki2[ROZMIAR_BUF_POMIAROW];
+float fPredkośćRolki1;
+float fPredkośćRolki2;
+//float fDrogaRolki1;
+//float fDrogaRolki2;
+uint8_t cBłąd;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -142,55 +149,63 @@ int main(void)
     OLED_OdswiezEkran();
     HAL_Delay(1000);
     OLED_CzyśćBuforEkranu();
-    //OLED_RysujNapis("Tmierz  Tzad  Wyj", 0, 8, &Font_7x10);	//nagłówek
-
 
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-	  HAL_Delay(100);
 	  OLED_CzyśćBuforEkranu();
 
-	  float fPredkość = 0.0f;
-	  float fDrogaRolki = 0.0f;
-	  float fCzasRolki = 0.0f;
+	  fPredkośćRolki1 = fPredkośćRolki2 = 0.0f;
+	  //fDrogaRolki1 = fDrogaRolki2 = 0.0f;
 	  uint32_t nLiczbaLosowa;
-	  uint8_t cPozY;
-	  float fWspSkaliY = (float)OLED_WYSOKOSC / 1.6f;
+	  uint8_t cPozX, cPozY;
+	  float fPrzyrostPredkości;
+	  float fWspSkaliY = (float)OLED_WYSOKOSC / 20.0f;	//tyle m/s na wysokości ekranu
+	  float fWspSkaliX = (float)OLED_SZEROKOSC / LICZBA_POMIAROW;
+	  float fDroga = 0.0f;
+	  float fCzas = 0.0f;
 
-	  //symuluj strzał z wyrzutni
-	  for (uint16_t n=0; n<ROZMIAR_BUF_POMIAROW; n++)
+	  //symuluj strzał z wyrzutni aby wygenerować dane
+	  for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
 	  {
-
-		  fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwięszaj prędkość o zadane przyspieszenie
+		  fPrzyrostPredkości = sqrtf(PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwięszaj prędkość o zadane przyspieszenie
 		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
-		  fPredkość += ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
-		  fDrogaRolki += (float)OBWOD_ROLKI / 1000;
-		  fCzasRolki += ((float)OBWOD_ROLKI / 1000) / fPredkość;
-		  nCzasRolki1[n] = fCzasRolki * 1000000;	//czas w mikrosekundach
+		  fPredkośćRolki1 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
+		  //fDrogaRolki1 += (float)OBWOD_ROLKI / 1000;
+		  nCzasRolki1[n] = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki1 * 1000000;	//czas w mikrosekundach
+
+		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
+		  fPredkośćRolki2 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
+		  //fDrogaRolki2 += (float)OBWOD_ROLKI / 1000;
+		  nCzasRolki2[n] = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki2 * 1000000;	//czas w mikrosekundach
 	  }
 
 	  //rysuj wykres prędkości wózka
-	  for (uint8_t cX=0; cX<ROZMIAR_BUF_POMIAROW; cX++)
+	  for (uint8_t x=0; x<LICZBA_POMIAROW; x++)
 	  {
-		  fPredkość = (float)nCzasRolki1[cX] / 1000000;
-		  cPozY = OLED_WYSOKOSC - fPredkość * fWspSkaliY;
-
-		  OLED_RysujPiksel(cX, cPozY, 1);
+		  fDroga += (float)OBWOD_ROLKI / 1000;
+		  fCzas += (float)nCzasRolki1[x] / 1000000;
+		  fPredkośćRolki1 = fDroga / fCzas;
+		  cPozX = x * fWspSkaliX;
+		  cPozY = OLED_WYSOKOSC - fPredkośćRolki1 * fWspSkaliY;
+		  OLED_RysujPiksel(cPozX, cPozY, 1);
 	  }
 
-	  sprintf(cBuforNapisów, "V  =%.2f  ", fPredkość);
+	  sprintf(cBuforNapisów, "V  =%.2f  ", fPredkośćRolki1);
 	  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
 
   	  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
-  	  OLED_RysujNapis("m", 110, 45-3, &Font_7x10);
-  	  OLED_RysujNapis("s", 110, 45+8, &Font_7x10);
-  	  OLED_RysujLiniePoziomą(110, 45+7, 7);				//kreska ułamka jednostki [m/s]
+  	  OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
+  	  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
+  	  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 	  OLED_OdswiezEkran();
 
+	  cBłąd = ZapiszPomiarNaKarte(nCzasRolki1, nCzasRolki2);
+	  //if (cBłąd == BLAD_OK)
+		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);	//migaj LED gdy poprawnie zapsuje na kartę
+	  HAL_Delay(100);
   }
   /* USER CODE END 3 */
 }
@@ -386,7 +401,7 @@ static void MX_SDMMC1_SD_Init(void)
 {
 
   /* USER CODE BEGIN SDMMC1_Init 0 */
-	if (HAL_GPIO_ReadPin(CD_GPIO_Port, CD_Pin) == GPIO_PIN_SET)		//jeżeli nie ma karty to pomiń inicjalizację
+	if (CzyKartaObecna())		//jeżeli nie ma karty to pomiń inicjalizację
 		return;
   /* USER CODE END SDMMC1_Init 0 */
 

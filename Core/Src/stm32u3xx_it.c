@@ -41,7 +41,12 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+volatile uint32_t fault_cfsr;
+volatile uint32_t fault_hfsr;
+volatile uint32_t fault_mmfar;
+volatile uint32_t fault_bfar;
+volatile uint32_t fault_pc;
+volatile uint32_t fault_lr;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,7 +92,13 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+	__asm volatile(
+		"TST LR, #4       \n"
+		"ITE EQ           \n"
+		"MRSEQ R0, MSP    \n"
+		"MRSNE R0, PSP    \n"
+		"B HardFault_C_Handler \n"
+	);
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -273,5 +284,18 @@ void SDMMC1_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+void HardFault_C_Handler(uint32_t *stack)
+{
+    fault_pc = stack[6];
+    fault_lr = stack[5];
 
+    fault_cfsr = SCB->CFSR;
+    fault_hfsr = SCB->HFSR;
+    fault_mmfar = SCB->MMFAR;
+    fault_bfar = SCB->BFAR;
+
+    __BKPT(0);
+
+    while (1) {}
+}
 /* USER CODE END 1 */
