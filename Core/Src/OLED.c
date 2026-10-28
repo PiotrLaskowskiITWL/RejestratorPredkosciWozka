@@ -1,10 +1,11 @@
-/*
- * OLED.c
- *
- *  Created on: Jul 29, 2026
- *      Author: dorota
- */
-
+//////////////////////////////////////////////////////////////////////////////
+//
+// Obsługa wyświetlacza OLED 128x64 po magistrali SPI
+//
+// Utworzone: Jul 29, 2026
+// Autor: Dorota
+// (c) ITWL 2026
+//////////////////////////////////////////////////////////////////////////////
 #include "OLED.h"
 #include "main.h"
 #include <stdio.h>

@@ -1,0 +1,17 @@
+/*
+ * Bluetooth.h
+ *
+ *  Created on: 28 paź 2026
+ *      Author: Piotr
+ */
+
+#ifndef BLUETOOTH_H_
+#define BLUETOOTH_H_
+#include "stm32u3xx_hal.h"
+#include "main.h"
+
+#define ROZMIAR_BUFORA_TELEMETRII	100
+
+uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary);
+
+#endif /* BLUETOOTH_H_ */

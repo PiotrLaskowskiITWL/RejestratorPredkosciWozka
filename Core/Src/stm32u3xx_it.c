@@ -47,6 +47,7 @@ volatile uint32_t fault_mmfar;
 volatile uint32_t fault_bfar;
 volatile uint32_t fault_pc;
 volatile uint32_t fault_lr;
+volatile uint16_t sCzasH;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,6 +63,7 @@ volatile uint32_t fault_lr;
 /* External variables --------------------------------------------------------*/
 extern SD_HandleTypeDef hsd1;
 extern TIM_HandleTypeDef htim2;
+extern TIM_HandleTypeDef htim7;
 extern UART_HandleTypeDef huart1;
 extern PCD_HandleTypeDef hpcd_USB_DRD_FS;
 /* USER CODE BEGIN EV */
@@ -239,6 +241,20 @@ void TIM2_IRQHandler(void)
   /* USER CODE BEGIN TIM2_IRQn 1 */
 
   /* USER CODE END TIM2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM7 global interrupt.
+  */
+void TIM7_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM7_IRQn 0 */
+
+  /* USER CODE END TIM7_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim7);
+  /* USER CODE BEGIN TIM7_IRQn 1 */
+  sCzasH++;	//inkrementuj starsze 16 bitów czasu
+  /* USER CODE END TIM7_IRQn 1 */
 }
 
 /**

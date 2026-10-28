@@ -1,23 +1,26 @@
-/*
- * KartaSD.c
- *
- *  Created on: 26 paź 2026
- *      Author: Piotr
- */
+//////////////////////////////////////////////////////////////////////////////
+//
+// Obsługa zapisu danych pomiarowych na kartę SD z wykorzytaniem biblioteki FileX
+//
+// Utworzone: 26 paź 2026
+// Autor: Piotr
+// (c) ITWL 2026
+//////////////////////////////////////////////////////////////////////////////
 #include "KartaSD.h"
 #include "KodyBledow.h"
-#include "main.h"
 #include "app_filex.h"
 #include <stdio.h>
 
 uint8_t cStatusKarty = 0;
 uint8_t cLicznikPomiarow = 1;
 ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
-extern UART_HandleTypeDef huart1;
+//extern UART_HandleTypeDef huart1;
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 FX_MEDIA        sdio_disk;
 FX_FILE         fx_file;
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja sprawdza obecność karty w gniździe testując stan pinu CD
@@ -38,15 +41,17 @@ uint8_t CzyKartaObecna(void)
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja zapisuje dane pomiarowe na karcie
 // Parametry:
-//  *nCzasRolki1, *nCzasRolki2 - wskaźniki na tablice danych pomiarowych
+//  *stPomiary - wskaźnik na tablice struktur przechowująceych dane pomiarowe
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t ZapiszPomiarNaKarte(uint32_t *nCzasRolki1, uint32_t *nCzasRolki2)
+uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 {
 	uint8_t cBłąd = BLAD_OK;
 	UINT nStatus;
 	int nRozmiar;
-	char *cZnak;
+	//float fPrędkość1, fPrędkość2, fPrędkość3, fPrędkość4, fDroga;
+	float fDroga;
+	float fCzas1, fCzas2, fCzas3, fCzas4;
 
 	cBłąd = CzyKartaObecna();
 	if (cBłąd)
@@ -97,35 +102,26 @@ uint8_t ZapiszPomiarNaKarte(uint32_t *nCzasRolki1, uint32_t *nCzasRolki2)
 		return BLAD_ZAPISU_KARTY;
 
 	//zapisz nagłówek w pierwszym wierszu
-	nRozmiar = sprintf(cBuforNapisów, "\r\nNr\t t1[us]\t V1[m/s]\t t2[us]\t V2[m/s]\r\n");
-	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforNapisów, nRozmiar, 10);
+	nRozmiar = FormatujNagłówekDanych(cBuforNapisów);
 	nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 	if (nStatus)
 		return BLAD_ZAPISU_KARTY;
 
-	float fPrędkość1, fPrędkość2, fDroga;
-	float fCzas1, fCzas2;
-	fPrędkość1 = fPrędkość2 = fDroga = 0.0f;
-	fCzas1 = fCzas2 = 0.0f;
+	//wykonaj obliczenia prędkości dla wszystkich danych
+	fDroga = 0.0f;
+	fCzas1 = fCzas2 = fCzas3 = fCzas4 = 0.0f;
 	for (uint8_t n=0; n<LICZBA_POMIAROW; n++)
 	{
 		fDroga = (float)OBWOD_ROLKI * (n+1) / 1000;
-		fCzas1 += ((float)*(nCzasRolki1 + n) / 1000000);
-		fCzas2 += ((float)*(nCzasRolki2 + n) / 1000000);
-		fPrędkość1 = fDroga / fCzas1;
-		fPrędkość2 = fDroga / fCzas2;
-		nRozmiar = sprintf(cBuforNapisów, "%u\t %lu\t %.2f\t %lu\t %.2f\r\n", n, *(nCzasRolki1 + n), fPrędkość1, *(nCzasRolki2 + n), fPrędkość2);
-
-		//zamień kropki dziesietne na przecinki, aby Excell dał radę odczytać dane
-		do
-		{
-			cZnak = strchr(cBuforNapisów, '.');
-			if (cZnak)
-				*cZnak = ',';
-		}
-		while (cZnak);
-
-		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforNapisów, nRozmiar, 10);
+		fCzas1 += ((float)(stPomiary + n)->nCzas1 / 1000000);
+		fCzas2 += ((float)(stPomiary + n)->nCzas2 / 1000000);
+		fCzas3 += ((float)(stPomiary + n)->nCzas3 / 1000000);
+		fCzas4 += ((float)(stPomiary + n)->nCzas4 / 1000000);
+		(stPomiary + n)->fPrędkość1 = fDroga / fCzas1;
+		(stPomiary + n)->fPrędkość2 = fDroga / fCzas2;
+		(stPomiary + n)->fPrędkość3 = fDroga / fCzas3;
+		(stPomiary + n)->fPrędkość4 = fDroga / fCzas4;
+		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n, stPomiary + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 		if (nStatus)
 			return BLAD_ZAPISU_KARTY;
@@ -147,3 +143,42 @@ uint8_t ZapiszPomiarNaKarte(uint32_t *nCzasRolki1, uint32_t *nCzasRolki2)
 	return cBłąd;
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja tworzy nagłówek jaki będzie umieszczony w pierszym wierszu danych
+// Parametry:
+//  *cBufor wskaźnik na bufor danych
+// Zwraca: ilość znaków nagłówka
+////////////////////////////////////////////////////////////////////////////////
+int FormatujNagłówekDanych(char *cBufor)
+{
+	return sprintf(cBufor, "\r\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s] t t3[us]\t v3[m/s] t t4[us]\t v4[m/s]\r\n");
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja tworzy ciąg znaków będący wpisem do logu
+// Parametry:
+//  *cBufor wskaźnik na bufor danych
+//  cIndeks - numer pomiaru
+//  *stPomiary - wskaźnik na tablicę struktur danych pomiarowych
+// Zwraca: ilość znaków nagłówka
+////////////////////////////////////////////////////////////////////////////////
+int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
+{
+	char *cZnak;
+	int nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f %lu\t %.2f %lu\t %.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
+
+	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
+	do
+	{
+		cZnak = strchr(cBufor, '.');
+		if (cZnak)
+			*cZnak = ',';
+	}
+	while (cZnak);
+
+	return nRozmiar;
+}

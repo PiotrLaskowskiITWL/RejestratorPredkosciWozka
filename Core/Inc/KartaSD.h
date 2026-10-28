@@ -9,6 +9,7 @@
 #ifndef INC_KARTASD_H_
 #define INC_KARTASD_H_
 #include "stm32u3xx_hal.h"
+#include "main.h"
 
 #define STATSD_MEDIA_OTWARTE		0x01
 #define STATSD_BRAK_KARTY			0x02
@@ -18,6 +19,8 @@
 #endif
 
 uint8_t CzyKartaObecna(void);
-uint8_t ZapiszPomiarNaKarte(uint32_t *nCzasRolki1, uint32_t *nCzasRolki2);
+uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary);
+int FormatujNagłówekDanych(char *cBufor);
+int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary);
 
 #endif /* INC_KARTASD_H_ */

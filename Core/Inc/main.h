@@ -36,7 +36,17 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct
+{
+	uint32_t nCzas1;
+	uint32_t nCzas2;
+	uint32_t nCzas3;
+	uint32_t nCzas4;
+	float fPrędkość1;
+	float fPrędkość2;
+	float fPrędkość3;
+	float fPrędkość4;
+} stPomiary_t;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -67,6 +77,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 #define ROZMIAR_BUF_NAPISOW		64
 #define ROZMIAR_BUF_POMIAROW	120
+#define LICZBA_CZUJNIKOW	4
 #define	DROGA_CALKOWITA		9500U	//długość bieżni wyrzutni [mm]
 #define	DROGA_ROZPEDZANIA	7500U	//odcinek wyrzutni na której rozpędza się BSP [mm]
 #define OBWOD_ROLKI			200U	//droga jednego obrotu rolki [mm]
@@ -78,6 +89,12 @@ void Error_Handler(void);
 #define MASA_BSP			78.0f	//masa BSP [kg]
 #define SILA_TLOKA			(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
 
+//znaczenia bitów zmiennej cStatusPomiaru
+#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty
+#define SP_GOTOWY			0x02
+#define SP_TRWA				0x04	//pojawiły się impulsy, które rozpoczeły pomiar
+#define SP_NOWY_POMIAR		0x08	//pojawiły się nowe impulsy, ale jeszcze nie upłynał timeout
+#define SP_PIERWSZY_POMIAR	0x10	//dla pierwszego pomiaru
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

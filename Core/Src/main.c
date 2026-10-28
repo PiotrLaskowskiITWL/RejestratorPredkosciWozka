@@ -26,6 +26,9 @@
 #include "OLED.h"
 #include "KartaSD.h"
 #include "KodyBledow.h"
+#include "Bluetooth.h"
+#include "Czas.h"
+#include "Pomiar.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,6 +56,7 @@ SD_HandleTypeDef hsd1;
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart1;
 
@@ -66,13 +70,16 @@ extern const uint8_t logo_ITWL[];
 extern const int logo_ITWL_width;
 extern const int logo_ITWL_height;
 char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
-uint32_t nCzasRolki1[ROZMIAR_BUF_POMIAROW];	//wartość czasu przechwycona przez timer przy aktywacji czujnika rolki1
-uint32_t nCzasRolki2[ROZMIAR_BUF_POMIAROW];
+stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 float fPredkośćRolki1;
 float fPredkośćRolki2;
-//float fDrogaRolki1;
-//float fDrogaRolki2;
+float fPredkośćRolki3;
+float fPredkośćRolki4;
 uint8_t cBłąd;
+extern uint8_t cStatusPomiaru;
+extern uint8_t cIndeksPomiaru[4];
+uint8_t cLicznikOczekiwania;
+uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,6 +94,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_USB_PCD_Init(void);
 static void MX_RNG_Init(void);
 static void MX_SDMMC1_SD_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -137,9 +145,11 @@ int main(void)
   MX_RNG_Init();
   MX_SDMMC1_SD_Init();
   MX_FileX_Init();
+  MX_TIM7_Init();
   MX_USBX_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
+  InicjujPomiarTimerem();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -149,63 +159,155 @@ int main(void)
     OLED_OdswiezEkran();
     HAL_Delay(1000);
     OLED_CzyśćBuforEkranu();
-
   while (1)
   {
+	  /*/Test podstawy czasu
+	  nCzasStop = PobierzCzasT7();
+	  nCzas = MinalCzas2(nCzasStart, nCzasStop);
+	  if (nCzas >= 1000000)
+	  {
+		  //nCzasStart = nCzasStop - (nCzas - 1000000);
+		  nCzasStart = nCzasStop;
+		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	  }*/
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  OLED_CzyśćBuforEkranu();
+	  //OLED_CzyśćBuforEkranu();
 
-	  fPredkośćRolki1 = fPredkośćRolki2 = 0.0f;
-	  //fDrogaRolki1 = fDrogaRolki2 = 0.0f;
-	  uint32_t nLiczbaLosowa;
+	  fPredkośćRolki1 = fPredkośćRolki2 = fPredkośćRolki3 = fPredkośćRolki4 = 0.0f;
+	  //uint32_t nLiczbaLosowa;
 	  uint8_t cPozX, cPozY;
-	  float fPrzyrostPredkości;
+	  //float fPrzyrostPredkości;
 	  float fWspSkaliY = (float)OLED_WYSOKOSC / 20.0f;	//tyle m/s na wysokości ekranu
 	  float fWspSkaliX = (float)OLED_SZEROKOSC / LICZBA_POMIAROW;
 	  float fDroga = 0.0f;
 	  float fCzas = 0.0f;
 
-	  //symuluj strzał z wyrzutni aby wygenerować dane
+	  /*/symuluj strzał z wyrzutni aby wygenerować czasy obrotu 4 rolek
 	  for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
 	  {
 		  fPrzyrostPredkości = sqrtf(PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwięszaj prędkość o zadane przyspieszenie
 		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
 		  fPredkośćRolki1 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
-		  //fDrogaRolki1 += (float)OBWOD_ROLKI / 1000;
-		  nCzasRolki1[n] = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki1 * 1000000;	//czas w mikrosekundach
+		  stPomiary[n].nCzas1 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki1 * 1000000;	//czas w mikrosekundach
 
 		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
 		  fPredkośćRolki2 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
-		  //fDrogaRolki2 += (float)OBWOD_ROLKI / 1000;
-		  nCzasRolki2[n] = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki2 * 1000000;	//czas w mikrosekundach
-	  }
+		  stPomiary[n].nCzas2 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki2 * 1000000;	//czas w mikrosekundach
 
-	  //rysuj wykres prędkości wózka
-	  for (uint8_t x=0; x<LICZBA_POMIAROW; x++)
+		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
+		  fPredkośćRolki3 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
+		  stPomiary[n].nCzas3 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki3 * 1000000;	//czas w mikrosekundach
+
+		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
+		  fPredkośćRolki4 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
+		  stPomiary[n].nCzas4 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki4 * 1000000;	//czas w mikrosekundach
+	  }*/
+
+	  if ((cStatusPomiaru & SP_ROZPOCZETY) != SP_ROZPOCZETY)
 	  {
-		  fDroga += (float)OBWOD_ROLKI / 1000;
-		  fCzas += (float)nCzasRolki1[x] / 1000000;
-		  fPredkośćRolki1 = fDroga / fCzas;
-		  cPozX = x * fWspSkaliX;
-		  cPozY = OLED_WYSOKOSC - fPredkośćRolki1 * fWspSkaliY;
-		  OLED_RysujPiksel(cPozX, cPozY, 1);
+		  cBłąd = RozpocznijPomiarTimerem();
+		  nCzasPoczatkuPomiaru = PobierzCzasT7();
+		  cStatusPomiaru |= SP_ROZPOCZETY;
+		  if (cStatusPomiaru & SP_PIERWSZY_POMIAR)	//licznik oczekiwania wyświetlaj tylko dla pierwszego pomiaru aby nie nadpisywać wczesniejszego wyniku
+		  {
+			  OLED_CzyśćBuforEkranu();
+			  sprintf(cBuforNapisów, "Czeka na start %d", cLicznikOczekiwania++);
+			  OLED_RysujNapis(cBuforNapisów, 0, 0, &Font_7x10);
+			  OLED_OdswiezEkran();
+		  }
 	  }
 
-	  sprintf(cBuforNapisów, "V  =%.2f  ", fPredkośćRolki1);
-	  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
+	  //jezeli pojawiaja się nowe pomiary to resetuj timeout
+	  if (cStatusPomiaru & SP_NOWY_POMIAR)
+	  {
+		  nCzasPoczatkuPomiaru = PobierzCzasT7();
+		  cStatusPomiaru &= ~SP_NOWY_POMIAR;
+	  }
 
-  	  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
-  	  OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
-  	  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
-  	  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
-	  OLED_OdswiezEkran();
+	  if (cStatusPomiaru & SP_GOTOWY)
+	  {
+		  //oblicz liczbę pomiarów
+		  uint8_t cLiczbaPomiarów = 0;
+		  uint32_t nMinCzas = 0xFFFFFFFF;
+		  for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
+		  {
+			  if (cIndeksPomiaru[n] > cLiczbaPomiarów)
+				  cLiczbaPomiarów = cIndeksPomiaru[n];
+		  }
+		  fWspSkaliX = (float)OLED_SZEROKOSC / cLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
 
-	  cBłąd = ZapiszPomiarNaKarte(nCzasRolki1, nCzasRolki2);
-	  //if (cBłąd == BLAD_OK)
-		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);	//migaj LED gdy poprawnie zapsuje na kartę
-	  HAL_Delay(100);
+		  //znajdź najmniejszy czas aby obliczyć współczynnik skalowania wykresu w Y
+		  for (uint8_t n=0; n<ROZMIAR_BUF_POMIAROW; n++)
+		  {
+			 if (stPomiary[n].nCzas1 < nMinCzas)
+				 nMinCzas = stPomiary[n].nCzas1;
+			 if (stPomiary[n].nCzas2 < nMinCzas)
+				 nMinCzas = stPomiary[n].nCzas2;
+			 if (stPomiary[n].nCzas3 < nMinCzas)
+				 nMinCzas = stPomiary[n].nCzas3;
+			 if (stPomiary[n].nCzas4 < nMinCzas)
+				 nMinCzas = stPomiary[n].nCzas4;
+		  }
+		  fWspSkaliY = (float)OLED_WYSOKOSC / (((float)OBWOD_ROLKI / 1000) / ((float)nMinCzas / 1000000));	//tyle m/s na wysokości ekranu
+
+		  //rysuj wykres prędkości wózka
+		  for (uint8_t x=0; x<cLiczbaPomiarów; x++)
+		  {
+			  fDroga += (float)OBWOD_ROLKI / 1000;
+			  fCzas += (float)stPomiary[x].nCzas1 / 1000000;
+			  fPredkośćRolki1 = fDroga / fCzas;
+			  cPozX = x * fWspSkaliX;
+			  cPozY = OLED_WYSOKOSC - fPredkośćRolki1 * fWspSkaliY;
+			  OLED_RysujPiksel(cPozX, cPozY, 1);
+		  }
+
+		  OLED_CzyśćBuforEkranu();
+		  sprintf(cBuforNapisów, "V  =%.2f  ", fPredkośćRolki1);
+		  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
+		  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
+		  OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
+		  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
+		  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
+		  OLED_OdswiezEkran();
+
+		  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
+		  if (cBłąd == BLAD_OK)
+		  {
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	////błyśnij LED gdy poprawnie wysłał telemetrię
+			  HAL_Delay(100);
+		  }
+		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+		  HAL_Delay(100);
+
+
+		  cBłąd = ZapiszPomiarNaKarte(stPomiary);
+		  if (cBłąd == BLAD_OK)
+		  {
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	////błyśnij LED gdy poprawnie zapisał dane na kartę
+			  HAL_Delay(100);
+		  }
+		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+		  HAL_Delay(100);
+		  cStatusPomiaru &= ~(SP_ROZPOCZETY | SP_NOWY_POMIAR | SP_TRWA | SP_GOTOWY | SP_PIERWSZY_POMIAR);	//kasuj wszystkie flagi
+		  cLicznikOczekiwania = 0;
+	  }
+	  else	//sprawdź czy wystąpił timeout
+	  {
+		  nCzas = PobierzCzasT7();
+		  nCzas = MinalCzas2(nCzasPoczatkuPomiaru, nCzas);
+		  if ((nCzas > 5000000) && (cStatusPomiaru & SP_ROZPOCZETY))	//timeput 5 sekund
+		  {
+			  cBłąd = ZakończPomiarTimerem();
+			  if (cStatusPomiaru & SP_TRWA)
+				  cStatusPomiaru |= SP_GOTOWY;
+			  else
+				  cStatusPomiaru &= ~SP_ROZPOCZETY;
+		  }
+	  }
+
   }
   /* USER CODE END 3 */
 }
@@ -501,7 +603,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 23;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -548,6 +650,44 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 23;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 65535;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+  HAL_TIM_Base_Start_IT(&htim7);		//rozpocznij liczenie czasu w trybie z przerwaniami
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
