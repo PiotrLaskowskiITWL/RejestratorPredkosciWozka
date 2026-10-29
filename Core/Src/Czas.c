@@ -32,7 +32,7 @@ uint32_t PobierzCzasT7(void)
 // Parametry: nPoczatek - licznik czasu na na początku pomiaru
 // Zwraca: ilość czasu w mikrosekundach jaki upłynął do podanego czasu początkowego
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t MinalCzasT7(uint32_t nPoczatek)
+uint32_t MinalCzas(uint32_t nPoczatek)
 {
 	uint32_t nCzasAkt;
 

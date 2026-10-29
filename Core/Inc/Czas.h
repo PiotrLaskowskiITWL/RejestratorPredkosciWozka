@@ -10,7 +10,7 @@
 #include "stm32u3xx_hal.h"
 
 uint32_t PobierzCzasT7(void);
-uint32_t MinalCzasT7(uint32_t nPoczatek);
+uint32_t MinalCzas(uint32_t nPoczatek);
 uint32_t MinalCzas2(uint32_t nPoczatek, uint32_t nCzasAkt);
 
 #endif /* INC_CZAS_H_ */

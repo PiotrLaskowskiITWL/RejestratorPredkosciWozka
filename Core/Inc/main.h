@@ -46,6 +46,7 @@ typedef struct
 	float fPrędkość2;
 	float fPrędkość3;
 	float fPrędkość4;
+	uint8_t cLiczbaPomiarów;
 } stPomiary_t;
 /* USER CODE END ET */
 
@@ -90,11 +91,12 @@ void Error_Handler(void);
 #define SILA_TLOKA			(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
 
 //znaczenia bitów zmiennej cStatusPomiaru
-#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty
-#define SP_GOTOWY			0x02
-#define SP_TRWA				0x04	//pojawiły się impulsy, które rozpoczeły pomiar
-#define SP_NOWY_POMIAR		0x08	//pojawiły się nowe impulsy, ale jeszcze nie upłynał timeout
-#define SP_PIERWSZY_POMIAR	0x10	//dla pierwszego pomiaru
+#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty - timer ruszył z pomiarem
+#define SP_PIERWSZY_POMIAR	0x02	//specjalny warunek rysowania ekranu pierwszego pomiaru
+#define SP_TRWA				0x04	//pojawiły się impulsy, które rozpoczeły pomiar, bez nich nie ma zakończenia pomiaru
+#define SP_NOWY_POMIAR		0x08	//pojawił się nowy impuls, więc resetuj timeout
+
+#define SP_GOTOWY			0x10	//wystąpił timeout po tym jak zaczęły przychodzić impulsy
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -17,6 +17,7 @@ ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / siz
 //extern UART_HandleTypeDef huart1;
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
+extern uint8_t cLiczbaPomiarów;
 FX_MEDIA        sdio_disk;
 FX_FILE         fx_file;
 
@@ -49,9 +50,6 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	uint8_t cBłąd = BLAD_OK;
 	UINT nStatus;
 	int nRozmiar;
-	//float fPrędkość1, fPrędkość2, fPrędkość3, fPrędkość4, fDroga;
-	float fDroga;
-	float fCzas1, fCzas2, fCzas3, fCzas4;
 
 	cBłąd = CzyKartaObecna();
 	if (cBłąd)
@@ -107,21 +105,9 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	if (nStatus)
 		return BLAD_ZAPISU_KARTY;
 
-	//wykonaj obliczenia prędkości dla wszystkich danych
-	fDroga = 0.0f;
-	fCzas1 = fCzas2 = fCzas3 = fCzas4 = 0.0f;
-	for (uint8_t n=0; n<LICZBA_POMIAROW; n++)
+	for (uint8_t n=0; n<cLiczbaPomiarów; n++)
 	{
-		fDroga = (float)OBWOD_ROLKI * (n+1) / 1000;
-		fCzas1 += ((float)(stPomiary + n)->nCzas1 / 1000000);
-		fCzas2 += ((float)(stPomiary + n)->nCzas2 / 1000000);
-		fCzas3 += ((float)(stPomiary + n)->nCzas3 / 1000000);
-		fCzas4 += ((float)(stPomiary + n)->nCzas4 / 1000000);
-		(stPomiary + n)->fPrędkość1 = fDroga / fCzas1;
-		(stPomiary + n)->fPrędkość2 = fDroga / fCzas2;
-		(stPomiary + n)->fPrędkość3 = fDroga / fCzas3;
-		(stPomiary + n)->fPrędkość4 = fDroga / fCzas4;
-		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n, stPomiary + n);
+		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 		if (nStatus)
 			return BLAD_ZAPISU_KARTY;
@@ -153,7 +139,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 ////////////////////////////////////////////////////////////////////////////////
 int FormatujNagłówekDanych(char *cBufor)
 {
-	return sprintf(cBufor, "\r\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s] t t3[us]\t v3[m/s] t t4[us]\t v4[m/s]\r\n");
+	return sprintf(cBufor, "\nNr\tt1[us]\tv1[m/s]\tt2[us]\tv2[m/s]\tt3[us]\tv3[m/s]\tt4[us]\tv4[m/s]\r\n");
 }
 
 
@@ -169,7 +155,7 @@ int FormatujNagłówekDanych(char *cBufor)
 int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 {
 	char *cZnak;
-	int nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f %lu\t %.2f %lu\t %.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
+	int nRozmiar = sprintf(cBufor, "%u\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
 
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do

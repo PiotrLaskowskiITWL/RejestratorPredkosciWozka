@@ -16,6 +16,9 @@ extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 uint8_t cIndeksPomiaru[4];
 uint8_t cStatusPomiaru = SP_PIERWSZY_POMIAR;
 uint32_t nPomiar, nPoprzedniPomiar[4];
+extern uint32_t nCzasPoczatkuPomiaru;
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja konfiguruje timer 2 do pray z przechwytywaniam impulsów z hallotronów
@@ -141,5 +144,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			cStatusPomiaru |= SP_GOTOWY;
 		}
 	}
-	cStatusPomiaru |= SP_TRWA | SP_NOWY_POMIAR;
+	cStatusPomiaru |= SP_NOWY_POMIAR | SP_TRWA;
+	nCzasPoczatkuPomiaru = PobierzCzasT7();
 }
