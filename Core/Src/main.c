@@ -73,10 +73,6 @@ extern const int logo_ITWL_width;
 extern const int logo_ITWL_height;
 char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
-//float fPredkośćRolki1;
-//float fPredkośćRolki2;
-//float fPredkośćRolki3;
-//float fPredkośćRolki4;
 uint8_t cBłąd;
 uint8_t cLiczbaPomiarów;
 extern uint8_t cStatusPomiaru;
@@ -85,7 +81,7 @@ uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
 float fPrędkośćMax;
-extern float32_t fX[];
+extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -156,7 +152,6 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   InicjujPomiarTimerem();
-  InicjujFiltrKalmanaPrędkościRolek5X2Z();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -180,7 +175,7 @@ int main(void)
 	  /*/symuluj strzał z wyrzutni aby wygenerować czasy obrotu 4 rolek
 	  for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
 	  {
-		  fPrzyrostPredkości = sqrtf(PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwięszaj prędkość o zadane przyspieszenie
+		  fPrzyrostPredkości = sqrtf(PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);	//w każdym obiegu zwiększaj prędkość o zadane przyspieszenie
 		  HAL_RNG_GenerateRandomNumber(&hrng, &nLiczbaLosowa);	//losuj liczbę błędu pomiaru
 		  fPredkośćRolki1 += fPrzyrostPredkości + ((nLiczbaLosowa & 0xFF) / 800.0f) - 128/800;	//dodaj szum rozłożony równomiernie względem zera
 		  stPomiary[n].nCzas1 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki1 * 1000000;	//czas w mikrosekundach
@@ -200,6 +195,7 @@ int main(void)
 
 	  if ((cStatusPomiaru & SP_ROZPOCZETY) != SP_ROZPOCZETY)
 	  {
+		  InicjujFiltrKalmanaPrędkościRolek7X2Z();
 		  cBłąd = RozpocznijPomiarTimerem();
 		  nCzasPoczatkuPomiaru = PobierzCzasT7();
 		  cStatusPomiaru |= SP_ROZPOCZETY;
@@ -212,7 +208,7 @@ int main(void)
 	  if (cStatusPomiaru & SP_TRWA)
 	  {
 		  nCzasPetliGłównej = MinalCzas2(nPoprzedniCzasPetliGłównej, nCzas);
-		  PredykcjaFiltraKalmanaPrędkościRolek5X2Z((float)nCzasPetliGłównej / 1000000);
+		  PredykcjaFiltraKalmanaPrędkościRolek7X2Z((float)nCzasPetliGłównej / 1000000);
 	  }
 	  nPoprzedniCzasPetliGłównej = nCzas;
 
@@ -225,13 +221,15 @@ int main(void)
 		{
 			stPomiary[cIndeks].fPrędkość1 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas1 / 1000000);	//średnia prędkość na bieżącym odcinku
 			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 1
-			AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość1);
+			AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość1);
 			stPomiary[cIndeks].fKalmanDroga = fX[0];
 			stPomiary[cIndeks].fKalmanPredkość = fX[1];
 			stPomiary[cIndeks].fKalmanPrzyspieszenie = fX[2];
+			stPomiary[cIndeks].fBłądDrogi1 = fX[3];
+
 			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość1)
-				fPrędkośćMax = stPomiary[cIndeks].fPrędkość1;
+			if (fPrędkośćMax < stPomiary[cIndeks].fKalmanPredkość)
+				fPrędkośćMax = stPomiary[cIndeks].fKalmanPredkość;
 		}
 		else
 			stPomiary[cIndeks].fPrędkość1 = 0.0f;
@@ -245,11 +243,15 @@ int main(void)
 		{
 			stPomiary[cIndeks].fPrędkość2 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas2 / 1000000);	//średnia prędkość na bieżącym odcinku
 			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
-			AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość2);
+			AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość2);
+			stPomiary[cIndeks].fKalmanDroga = fX[0];
+			stPomiary[cIndeks].fKalmanPredkość = fX[1];
+			stPomiary[cIndeks].fKalmanPrzyspieszenie = fX[2];
+			stPomiary[cIndeks].fBłądDrogi2 = fX[4];
 
 			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość2)
-				fPrędkośćMax = stPomiary[cIndeks].fPrędkość2;
+			if (fPrędkośćMax < stPomiary[cIndeks].fKalmanPredkość)
+				fPrędkośćMax = stPomiary[cIndeks].fKalmanPredkość;
 		}
 		else
 			stPomiary[cIndeks].fPrędkość2 = 0.0f;
@@ -263,11 +265,15 @@ int main(void)
 		{
 			stPomiary[cIndeks].fPrędkość3 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
 			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
-			//AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
+			AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
+			stPomiary[cIndeks].fKalmanDroga = fX[0];
+			stPomiary[cIndeks].fKalmanPredkość = fX[1];
+			stPomiary[cIndeks].fKalmanPrzyspieszenie = fX[2];
+			stPomiary[cIndeks].fBłądDrogi3 = fX[5];
 
 			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość3)
-				fPrędkośćMax = stPomiary[cIndeks].fPrędkość3;
+			if (fPrędkośćMax < stPomiary[cIndeks].fKalmanPredkość)
+				fPrędkośćMax = stPomiary[cIndeks].fKalmanPredkość;
 		}
 		else
 			stPomiary[cIndeks].fPrędkość3 = 0.0f;
@@ -281,11 +287,15 @@ int main(void)
 		{
 			stPomiary[cIndeks].fPrędkość4 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
 			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
-			//AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
+			AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość4);
+			stPomiary[cIndeks].fKalmanDroga = fX[0];
+			stPomiary[cIndeks].fKalmanPredkość = fX[1];
+			stPomiary[cIndeks].fKalmanPrzyspieszenie = fX[2];
+			stPomiary[cIndeks].fBłądDrogi4 = fX[6];
 
 			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość4)
-				fPrędkośćMax = stPomiary[cIndeks].fPrędkość4;
+			if (fPrędkośćMax < stPomiary[cIndeks].fKalmanPredkość)
+				fPrędkośćMax = stPomiary[cIndeks].fKalmanPredkość;
 		}
 		else
 			stPomiary[cIndeks].fPrędkość4 = 0.0f;

@@ -13,18 +13,21 @@
 #include <main.h>
 
 
-float32_t fX[KSTAN];					//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie Z, 3=błąd drogi rolki 1, 4-błąd drogi rolki 2
+float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 static float32_t fZ[KPOM];					//wektor pomiaru: 0=droga, 1=prędkość
 static float32_t fF[KSTAN][KSTAN];			//macierz przejścia wektora stanu
 static float32_t fP[KSTAN][KSTAN];			//macierz kowariancji predykcji
-static float32_t fR1[KPOM][KPOM];			//macierz kowariancji pomiaru prędkości z rolki 1
-static float32_t fR2[KPOM][KPOM];			//macierz kowariancji pomiaru prędkości z rolki 2
+static float32_t fR[KPOM][KPOM];			//macierz kowariancji pomiaru prędkości z rolki
 static float32_t fQ[KSTAN][KSTAN];			//macierz szumu procesu
 static float32_t fI[KSTAN][KSTAN];			//macierz jednostkowa
 static float32_t fH1[KPOM][KSTAN];			//macierz obserwacji prędkości rolki 1
 static float32_t fH2[KPOM][KSTAN];			//macierz obserwacji prędkości rolki 2
+static float32_t fH3[KPOM][KSTAN];			//macierz obserwacji prędkości rolki 3
+static float32_t fH4[KPOM][KSTAN];			//macierz obserwacji prędkości rolki 4
 static float32_t fK1[KSTAN][KPOM];			//macierz wzmocnień Kalmana rolki 1
 static float32_t fK2[KSTAN][KPOM];			//macierz wzmocnień Kalmana rolki 2
+static float32_t fK3[KSTAN][KPOM];			//macierz wzmocnień Kalmana rolki 3
+static float32_t fK4[KSTAN][KPOM];			//macierz wzmocnień Kalmana rolki 4
 static float32_t fPH[KSTAN][KPOM];			//macierz [Stan x Pomiar] na wyniki pośrednie
 static float32_t fTempSPc[KSTAN][KPOM];		//macierz [Stan x Pomiar] na wyniki pośrednie
 static float32_t fTempPPcA[KPOM][KPOM];		//macierz [Pomiar x Pomiar] na wyniki pośrednie A
@@ -43,14 +46,17 @@ static arm_matrix_instance_f32 mX  = {KSTAN, 1, fX};				//wektor stanu
 static arm_matrix_instance_f32 mZ  = {KPOM, 1, fZ};					//wektor pomiaru: prędkość
 static arm_matrix_instance_f32 mF  = {KSTAN, KSTAN, &fF[0][0]};		//macierz przejścia wektora stanu
 static arm_matrix_instance_f32 mP  = {KSTAN, KSTAN, &fP[0][0]};		//macierz kowariancji predykcji
-static arm_matrix_instance_f32 mR1 = {KPOM, KPOM, &fR1[0][0]};		//macierz kowariancji pomiaru rolką 1
-static arm_matrix_instance_f32 mR2 = {KPOM, KPOM, &fR2[0][0]};		//macierz kowariancji pomiaru rolka 2
+static arm_matrix_instance_f32 mR  = {KPOM, KPOM, &fR[0][0]};		//macierz kowariancji pomiaru rolką
 static arm_matrix_instance_f32 mQ  = {KSTAN, KSTAN, &fQ[0][0]};		//macierz szumu procesu
 static arm_matrix_instance_f32 mI  = {KSTAN, KSTAN, &fI[0][0]};		//macierz jednostkowa
 static arm_matrix_instance_f32 mH1 = {KPOM, KSTAN, &fH1[0][0]};		//macierz obserwacji prędkości z rolki 1
 static arm_matrix_instance_f32 mH2 = {KPOM, KSTAN, &fH2[0][0]};		//macierz obserwacji prędkości z rolk1 2
-static arm_matrix_instance_f32 mK1 = {KSTAN, KPOM, &fK1[0][0]};		//macierz wzmocnień Kalmana czujnika ciśnienia 1
-static arm_matrix_instance_f32 mK2 = {KSTAN, KPOM, &fK2[0][0]};		//macierz wzmocnień Kalmana czujnika ciśnienia 2
+static arm_matrix_instance_f32 mH3 = {KPOM, KSTAN, &fH3[0][0]};		//macierz obserwacji prędkości z rolki 3
+static arm_matrix_instance_f32 mH4 = {KPOM, KSTAN, &fH4[0][0]};		//macierz obserwacji prędkości z rolk1 4
+static arm_matrix_instance_f32 mK1 = {KSTAN, KPOM, &fK1[0][0]};		//macierz wzmocnień Kalmana prędkości rolki 1
+static arm_matrix_instance_f32 mK2 = {KSTAN, KPOM, &fK2[0][0]};		//macierz wzmocnień Kalmana prędkości rolki 2
+static arm_matrix_instance_f32 mK3 = {KSTAN, KPOM, &fK3[0][0]};		//macierz wzmocnień Kalmana prędkości rolki 3
+static arm_matrix_instance_f32 mK4 = {KSTAN, KPOM, &fK4[0][0]};		//macierz wzmocnień Kalmana prędkości rolki 4
 static arm_matrix_instance_f32 mPH = {KSTAN, KPOM, &fPH[0][0]};		//macierz Stan x Pomiar na iloczyn P*Hc
 static arm_matrix_instance_f32 mTempSPc  = {KSTAN, KPOM, &fTempSPc[0][0]};
 static arm_matrix_instance_f32 mTempPPcA = {KPOM, KPOM, &fTempPPcA[0][0]};	//macierz Pomiar x Pomiar na wyniki pośrednie A
@@ -111,7 +117,7 @@ uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float 
 // Parametry: brak
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
+uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -132,8 +138,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 	{
 		for (uint8_t n=0; n<KPOM; n++)
 		{
-			fR1[p][n] = 0.0f;
-			fR2[p][n] = 0.0f;
+			fR[p][n] = 0.0f;
 		}
 		for (uint8_t n=0; n<KSTAN; n++)
 		{
@@ -144,11 +149,13 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 
 
 	//inicjuj pierwszy pomiar i wektor stanu
-	fX[0] = 0.00001f;		//droga
+	fX[0] = (float)OBWOD_ROLKI / 1000;		//droga - pierwszy pomiar jest po wykonaniu jednego obrotu
 	fX[1] = 0.00001f;		//prędkość
 	fX[2] = 0.00001f;		//przyspieszenie
 	fX[3] = 0.00001f;		//błąd prędkości rolki 1
 	fX[4] = 0.00001f;		//błąd prędkości rolki 2
+	fX[5] = 0.00001f;		//błąd prędkości rolki 3
+	fX[6] = 0.00001f;		//błąd prędkości rolki 4
 
 	arm_mat_init_f32(&mX, KSTAN, 1, fX);
 	arm_mat_init_f32(&mZ, KPOM, 1, fZ);
@@ -158,12 +165,9 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 	//pozostałe pola sa kowariancją, czyli zależnością między błędami jednego pomiaru a drugiego. Zakładam że
 	//błędy pomiarów są niezależne, więc kowariancja jest ustawiona na 0. W rzeczywistosci pomiar prędkości jest liczony
 	//z danych czujnika wysokości więc korelacja istnieje ale na razie nie potrafię jej obliczyć
-	fR1[0][0] = 0.056;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
-	fR1[1][1] = 0.407;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
-	fR2[0][0] = 0.0093;	//wariancja statycznego pomiaru drogi rolki 3 [m^2]
-	fR2[1][1] = 0.0016;	//wariancja statycznego pomiaru prędkości rolki 2 [m^2/s^2]
-	arm_mat_init_f32(&mR1, KPOM, KPOM, &fR1[0][0]);
-	arm_mat_init_f32(&mR2, KPOM, KPOM, &fR2[0][0]);
+	fR[0][0] = 0.056;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
+	fR[1][1] = 0.407;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
+	arm_mat_init_f32(&mR, KPOM, KPOM, &fR[0][0]);
 
 	//początkowa wariancja predykcji
 	fP[0][0] = 0.055;
@@ -182,6 +186,8 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 	fF[2][2] = 1.0f;				//przyspieszenie = poprzednie przyspieszenie
 	fF[3][3] = 1.0f;				//błąd prędkości rolki 1
 	fF[4][4] = 1.0f;				//błąd prędkości rolki 2
+	fF[5][5] = 1.0f;				//błąd prędkości rolki 3
+	fF[6][6] = 1.0f;				//błąd prędkości rolki 4
 	arm_mat_init_f32(&mF, KSTAN, KSTAN, &fF[0][0]);
 
 	//inicjalizacja szumu procesu. Zakładam że szum procesu zależy od podchodnej przyspieszenia, czyli zrywu
@@ -194,17 +200,26 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 		fI[n][n] = 1.0f;
 	arm_mat_init_f32(&mI, KSTAN, KSTAN, &fI[0][0]);
 
-	//inicjalizacja obu macierzy obserwacji, takiej samej dla obu rolek
-	fH1[0][0] = 1.0f;		//droga z rolki jest obserwowana przez stan drogi rolki 1
-	fH1[0][3] = 1.0f;		//droga z rolki jest obserwowana przez stan błędu drogi rolki 1
-	fH1[1][1] = 1.0f;		//prędkość z rolki jest obserwowana przez stan prędkości rolki 1
+	//inicjalizacja macierzy obserwacji
+	fH1[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 1
+	fH1[0][3] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 1
+	fH1[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 1
 	arm_mat_init_f32(&mH1, KPOM, KSTAN, &fH1[0][0]);
 
-	fH2[0][0] = 1.0f;		//droga z rolki jest obserwowana przez stan drogi rolki 2
-	fH2[0][3] = 1.0f;		//droga z rolki jest obserwowana przez stan błędu drogi rolki 2
-	fH2[1][1] = 1.0f;		//prędkość z rolki jest obserwowana przez stan prędkości rolki 2
+	fH2[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 2
+	fH2[0][4] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 2
+	fH2[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 2
 	arm_mat_init_f32(&mH2, KPOM, KSTAN, &fH2[0][0]);
 
+	fH3[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 3
+	fH3[0][5] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 3
+	fH3[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 3
+	arm_mat_init_f32(&mH3, KPOM, KSTAN, &fH3[0][0]);
+
+	fH4[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 4
+	fH4[0][6] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 4
+	fH4[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 4
+	arm_mat_init_f32(&mH4, KPOM, KSTAN, &fH4[0][0]);
 	return cBłąd;
 }
 
@@ -218,7 +233,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek5X2Z(void)
 // Parametry: fDeltaCzasu - czas w sekundach od ostatniego pomiaru
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t PredykcjaFiltraKalmanaPrędkościRolek5X2Z(float fDeltaCzasu)
+uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -267,7 +282,7 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek5X2Z(float fDeltaCzasu)
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -284,7 +299,7 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 	cBłąd |= arm_mat_mult_f32(&mH1, &mPH, &mTempPPcA);
 
 	//(H*P(n-1)*H^T) + R(n) -> fTempPPcB	[Pomiar x Pomiar] + [Pomiar x Pomiar] = [Pomiar x Pomiar]
-	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR1, &mTempPPcB);
+	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR, &mTempPPcB);
 
 	//inwersja powyższego: (H*P(n-1)*H^T+R(n))^-1 -> fTempPPcA	[Pomiar x Pomiar] -> [Pomiar x Pomiar]
 	cBłąd |= arm_mat_inverse_f32(&mTempPPcB, &mTempPPcA);
@@ -324,7 +339,7 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 	cBłąd |= arm_mat_mult_f32(&mTempSSA, &mTempSSC, &mTempSSB);
 
 	//mnożenie 	K(n) * R(n)  -> mTempSPc  	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
-	cBłąd |= arm_mat_mult_f32(&mK1, &mR1, &mTempSPc);
+	cBłąd |= arm_mat_mult_f32(&mK1, &mR, &mTempSPc);
 
 	//transpozycja K(n)^T -> mTempM24  		[Stan x Pomiar] -> [Pomiar x Stan]
 	cBłąd |= arm_mat_trans_f32(&mK1, &mTempPcS);
@@ -339,14 +354,14 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Funkcja aktualizuje stan filtra na podstawie nowego pomiaru prędkości rolki 1
+// Funkcja aktualizuje stan filtra na podstawie nowego pomiaru prędkości rolki 2
 // Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
 // gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -363,7 +378,7 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 	cBłąd |= arm_mat_mult_f32(&mH2, &mPH, &mTempPPcA);
 
 	//(H*P(n-1)*H^T) + R(n) -> fTempPPcB	[Pomiar x Pomiar] + [Pomiar x Pomiar] = [Pomiar x Pomiar]
-	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR1, &mTempPPcB);
+	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR, &mTempPPcB);
 
 	//inwersja powyższego: (H*P(n-1)*H^T+R(n))^-1 -> fTempPPcA	[Pomiar x Pomiar] -> [Pomiar x Pomiar]
 	cBłąd |= arm_mat_inverse_f32(&mTempPPcB, &mTempPPcA);
@@ -403,7 +418,7 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 	cBłąd |= arm_mat_mult_f32(&mTempSSA, &mTempSSC, &mTempSSB);
 
 	//mnożenie 	K(n) * R(n)  -> mTempSPc  	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
-	cBłąd |= arm_mat_mult_f32(&mK2, &mR1, &mTempSPc);
+	cBłąd |= arm_mat_mult_f32(&mK2, &mR, &mTempSPc);
 
 	//transpozycja K(n)^T -> mTempM24  		[Stan x Pomiar] -> [Pomiar x Stan]
 	cBłąd |= arm_mat_trans_f32(&mK2, &mTempPcS);
@@ -416,4 +431,163 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(float fDroga, float 
 	return cBłąd;
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja aktualizuje stan filtra na podstawie nowego pomiaru prędkości rolki 3
+// Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
+// gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
+// Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
+// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Zwraca: kod błędu
+////////////////////////////////////////////////////////////////////////////////
+uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+{
+	uint8_t cBłąd = BLAD_OK;
+
+	fZ[0] = fPredkość;	//prędkość pionowa
+
+	//liczę współczynnik wzmocnienia Kalmana: mK,
+	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
+	cBłąd |= arm_mat_trans_f32(&mH3, &mTempSPc);
+
+	// P(n-1) * (H^T) -> mPHc				[Stan x Stan] * [Stan x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mP, &mTempSPc, &mPH);
+
+	//H * (P(n-1)*H^T) -> fTempPPcA			[Pomiar x Stan] * [Stan x Pomiar] = [Pomiar x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mH3, &mPH, &mTempPPcA);
+
+	//(H*P(n-1)*H^T) + R(n) -> fTempPPcB	[Pomiar x Pomiar] + [Pomiar x Pomiar] = [Pomiar x Pomiar]
+	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR, &mTempPPcB);
+
+	//inwersja powyższego: (H*P(n-1)*H^T+R(n))^-1 -> fTempPPcA	[Pomiar x Pomiar] -> [Pomiar x Pomiar]
+	cBłąd |= arm_mat_inverse_f32(&mTempPPcB, &mTempPPcA);
+
+	//finalne mnożenie: (P(n-1)*H^T) * ((H*P(n-1)*H^T+R(n))^-1) -> mK	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mPH, &mTempPPcA, &mK3);
+
+	//teraz liczę nową estymatę. Najpierw cześć w nawiasie: H * X(n-1) [Pomiar x Stan] * [Stan] = [Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mH3, &mX, &mTempPc1A);
+
+	//innowacja: z(n) - (H*X(n-1)) ->mTempPc1B		[Pomiar] - [Pomiar] = [Pomiar]
+	cBłąd |= arm_mat_sub_f32(&mZ, &mTempPc1A, &mTempPc1B);
+
+	//mnożenie przez K: K(n) * (z(n)-H*X(n-1))		[Stan x Pomiar] * [Pomiar] = [Stan]
+	cBłąd |= arm_mat_mult_f32(&mK3, &mTempPc1B, &mTempS1A);
+
+	//dodanie poprzedniej estymaty: Estymata_x(n-1) + K(n)*(z(n)-H*X(n-1))	[Stan] + [Stan] = [Stan]
+	cBłąd |= arm_mat_add_f32(&mX, &mTempS1A, &mTempS1B);
+
+	//przepisanie estymaty do wektora stanu
+	for (uint8_t n=0; n<KSTAN; n++)
+		fX[n] = fTempS1B[n];
+
+	//teraz liczę macierz wariancji i kowariancji, zaczynam od  K(n) * H -> mTempSSA	 [Stan x Pomiar] * [Pomiar x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mK3, &mH3, &mTempSSA);
+
+	//odejmowanie (I - K(n) * H) -> mTempSSB
+	cBłąd |= arm_mat_sub_f32(&mI, &mTempSSA, &mTempSSB);
+
+	//mnożenie (I-K(n)*H) * P(n-1) -> mTempSSA 	[Stan x Stan] * [Stan x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mTempSSB, &mP, &mTempSSA);
+
+	//transpozycja: (I-K(n)*H)^T-> mTempSSC
+	cBłąd |= arm_mat_trans_f32(&mTempSSB, &mTempSSC);
+
+	//mnożenie: (I-K(n)*H)*P(n-1) * (I-K(n)*H)^T
+	cBłąd |= arm_mat_mult_f32(&mTempSSA, &mTempSSC, &mTempSSB);
+
+	//mnożenie 	K(n) * R(n)  -> mTempSPc  	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mK3, &mR, &mTempSPc);
+
+	//transpozycja K(n)^T -> mTempM24  		[Stan x Pomiar] -> [Pomiar x Stan]
+	cBłąd |= arm_mat_trans_f32(&mK3, &mTempPcS);
+
+	//mnożenie 	(K(n)*R(n)) * (K(n)^T) 	 	[Stan x Pomiar] * [Pomiar x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mTempSPc, &mTempPcS, &mTempSSA);
+
+	//finalne sumowanie ((I-K(n)*H)*P(n-1)*(I*K(n)*H)^T) + (K(n)*R(n)*K(n)^T) -> P(n)
+	cBłąd |= arm_mat_add_f32(&mTempSSB, &mTempSSA, &mP);
+	return cBłąd;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja aktualizuje stan filtra na podstawie nowego pomiaru prędkości rolki 4
+// Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
+// gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
+// Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
+// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Zwraca: kod błędu
+////////////////////////////////////////////////////////////////////////////////
+uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+{
+	uint8_t cBłąd = BLAD_OK;
+
+	fZ[0] = fPredkość;	//prędkość pionowa
+
+	//liczę współczynnik wzmocnienia Kalmana: mK,
+	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
+	cBłąd |= arm_mat_trans_f32(&mH4, &mTempSPc);
+
+	// P(n-1) * (H^T) -> mPHc				[Stan x Stan] * [Stan x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mP, &mTempSPc, &mPH);
+
+	//H * (P(n-1)*H^T) -> fTempPPcA			[Pomiar x Stan] * [Stan x Pomiar] = [Pomiar x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mH4, &mPH, &mTempPPcA);
+
+	//(H*P(n-1)*H^T) + R(n) -> fTempPPcB	[Pomiar x Pomiar] + [Pomiar x Pomiar] = [Pomiar x Pomiar]
+	cBłąd |= arm_mat_add_f32(&mTempPPcA, &mR, &mTempPPcB);
+
+	//inwersja powyższego: (H*P(n-1)*H^T+R(n))^-1 -> fTempPPcA	[Pomiar x Pomiar] -> [Pomiar x Pomiar]
+	cBłąd |= arm_mat_inverse_f32(&mTempPPcB, &mTempPPcA);
+
+	//finalne mnożenie: (P(n-1)*H^T) * ((H*P(n-1)*H^T+R(n))^-1) -> mK	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mPH, &mTempPPcA, &mK4);
+
+	//teraz liczę nową estymatę. Najpierw cześć w nawiasie: H * X(n-1) [Pomiar x Stan] * [Stan] = [Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mH4, &mX, &mTempPc1A);
+
+	//innowacja: z(n) - (H*X(n-1)) ->mTempPc1B		[Pomiar] - [Pomiar] = [Pomiar]
+	cBłąd |= arm_mat_sub_f32(&mZ, &mTempPc1A, &mTempPc1B);
+
+	//mnożenie przez K: K(n) * (z(n)-H*X(n-1))		[Stan x Pomiar] * [Pomiar] = [Stan]
+	cBłąd |= arm_mat_mult_f32(&mK4, &mTempPc1B, &mTempS1A);
+
+	//dodanie poprzedniej estymaty: Estymata_x(n-1) + K(n)*(z(n)-H*X(n-1))	[Stan] + [Stan] = [Stan]
+	cBłąd |= arm_mat_add_f32(&mX, &mTempS1A, &mTempS1B);
+
+	//przepisanie estymaty do wektora stanu
+	for (uint8_t n=0; n<KSTAN; n++)
+		fX[n] = fTempS1B[n];
+
+	//teraz liczę macierz wariancji i kowariancji, zaczynam od  K(n) * H -> mTempSSA	 [Stan x Pomiar] * [Pomiar x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mK4, &mH4, &mTempSSA);
+
+	//odejmowanie (I - K(n) * H) -> mTempSSB
+	cBłąd |= arm_mat_sub_f32(&mI, &mTempSSA, &mTempSSB);
+
+	//mnożenie (I-K(n)*H) * P(n-1) -> mTempSSA 	[Stan x Stan] * [Stan x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mTempSSB, &mP, &mTempSSA);
+
+	//transpozycja: (I-K(n)*H)^T-> mTempSSC
+	cBłąd |= arm_mat_trans_f32(&mTempSSB, &mTempSSC);
+
+	//mnożenie: (I-K(n)*H)*P(n-1) * (I-K(n)*H)^T
+	cBłąd |= arm_mat_mult_f32(&mTempSSA, &mTempSSC, &mTempSSB);
+
+	//mnożenie 	K(n) * R(n)  -> mTempSPc  	[Stan x Pomiar] * [Pomiar x Pomiar] = [Stan x Pomiar]
+	cBłąd |= arm_mat_mult_f32(&mK4, &mR, &mTempSPc);
+
+	//transpozycja K(n)^T -> mTempM24  		[Stan x Pomiar] -> [Pomiar x Stan]
+	cBłąd |= arm_mat_trans_f32(&mK4, &mTempPcS);
+
+	//mnożenie 	(K(n)*R(n)) * (K(n)^T) 	 	[Stan x Pomiar] * [Pomiar x Stan] = [Stan x Stan]
+	cBłąd |= arm_mat_mult_f32(&mTempSPc, &mTempPcS, &mTempSSA);
+
+	//finalne sumowanie ((I-K(n)*H)*P(n-1)*(I*K(n)*H)^T) + (K(n)*R(n)*K(n)^T) -> P(n)
+	cBłąd |= arm_mat_add_f32(&mTempSSB, &mTempSSA, &mP);
+	return cBłąd;
+}
 

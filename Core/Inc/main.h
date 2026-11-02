@@ -49,6 +49,10 @@ typedef struct
 	float fKalmanDroga;
 	float fKalmanPredkość;
 	float fKalmanPrzyspieszenie;
+	float fBłądDrogi1;
+	float fBłądDrogi2;
+	float fBłądDrogi3;
+	float fBłądDrogi4;
 	uint8_t cLiczbaPomiarów;
 } stPomiary_t;
 /* USER CODE END ET */
@@ -79,8 +83,8 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define ROZMIAR_BUF_NAPISOW		64
-#define ROZMIAR_BUF_POMIAROW	120
+#define ROZMIAR_BUF_NAPISOW		150
+#define ROZMIAR_BUF_POMIAROW	200
 #define LICZBA_CZUJNIKOW	4
 #define	DROGA_CALKOWITA		9500U	//długość bieżni wyrzutni [mm]
 #define	DROGA_ROZPEDZANIA	7500U	//odcinek wyrzutni na której rozpędza się BSP [mm]
