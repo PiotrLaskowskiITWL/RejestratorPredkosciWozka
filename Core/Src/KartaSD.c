@@ -3,7 +3,7 @@
 // Obsługa zapisu danych pomiarowych na kartę SD z wykorzytaniem biblioteki FileX
 //
 // Utworzone: 26 paź 2026
-// Autor: Piotr
+// Autor: Piotr Laskowski
 // (c) ITWL 2026
 //////////////////////////////////////////////////////////////////////////////
 #include "KartaSD.h"
@@ -139,7 +139,9 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 ////////////////////////////////////////////////////////////////////////////////
 int FormatujNagłówekDanych(char *cBufor)
 {
-	return sprintf(cBufor, "\nNr\tt1[us]\tv1[m/s]\tt2[us]\tv2[m/s]\tt3[us]\tv3[m/s]\tt4[us]\tv4[m/s]\r\n");
+	//return sprintf(cBufor, "\nNr\tt1[us]\tv1[m/s]\tt2[us]\tv2[m/s]\tt3[us]\tv3[m/s]\tt4[us]\tv4[m/s]\r\n");	//wersja z samą tabulcją
+	//return sprintf(cBufor, "\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\r\n");		//wersja z tabulacją i spacją
+	return sprintf(cBufor, "\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\r\n");		//wersja z filtrem Kalmana, tabulacją i spacją
 }
 
 
@@ -155,7 +157,11 @@ int FormatujNagłówekDanych(char *cBufor)
 int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 {
 	char *cZnak;
-	int nRozmiar = sprintf(cBufor, "%u\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
+	int nRozmiar;
+
+	//nRozmiar = sprintf(cBufor, "%u\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
+	//nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
+	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4, stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie);
 
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do

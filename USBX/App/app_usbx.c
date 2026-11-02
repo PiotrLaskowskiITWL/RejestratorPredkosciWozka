@@ -21,14 +21,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "app_usbx.h"
 
-/* USER CODE BEGIN UX_Memory_Buffer */
-
-/* USER CODE END UX_Memory_Buffer */
-#if defined ( __ICCARM__ )
-#pragma data_alignment=4
-#endif
-__ALIGN_BEGIN static UCHAR ux_byte_pool_buffer[USBX_APP_MEM_POOL_SIZE] __ALIGN_END;
-
 /**
   * @brief  Application USBX Initialization.
   * @param  none
@@ -37,21 +29,10 @@ __ALIGN_BEGIN static UCHAR ux_byte_pool_buffer[USBX_APP_MEM_POOL_SIZE] __ALIGN_E
 UINT MX_USBX_Init(VOID)
 {
   UINT ret = UX_SUCCESS;
-  UCHAR *pointer;
 
   /* USER CODE BEGIN MX_USBX_Init0 */
 
   /* USER CODE END MX_USBX_Init0 */
-
-  pointer = ux_byte_pool_buffer;
-
-  /* Initialize USBX Memory */
-  if (ux_system_initialize(pointer, USBX_MEMORY_STACK_SIZE, UX_NULL, 0) != UX_SUCCESS)
-  {
-    /* USER CODE BEGIN USBX_SYSTEM_INITIALIZE_ERROR */
-    return UX_ERROR;
-    /* USER CODE END USBX_SYSTEM_INITIALIZE_ERROR */
-  }
 
   if (MX_USBX_Device_Init() != UX_SUCCESS)
   {

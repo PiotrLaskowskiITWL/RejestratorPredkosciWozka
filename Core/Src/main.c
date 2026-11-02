@@ -29,6 +29,8 @@
 #include "Bluetooth.h"
 #include "Czas.h"
 #include "Pomiar.h"
+#include "Kalman.h"
+#include <arm_math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,6 +83,9 @@ extern uint8_t cStatusPomiaru;
 extern uint8_t cIndeksPomiaru[4];
 uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
+uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
+float fPrędkośćMax;
+extern float32_t fX[];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -151,6 +156,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   InicjujPomiarTimerem();
+  InicjujFiltrKalmanaPrędkościRolek5X2Z();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -169,7 +175,7 @@ int main(void)
 	  float fWspSkaliY = (float)OLED_WYSOKOSC / 20.0f;	//tyle m/s na wysokości ekranu
 	  float fWspSkaliX = (float)OLED_SZEROKOSC / LICZBA_POMIAROW;
 	  float fDroga = 0.0f;
-	  float fPrędkośćMax = 0.0f;
+	  uint8_t cIndeks;
 
 	  /*/symuluj strzał z wyrzutni aby wygenerować czasy obrotu 4 rolek
 	  for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
@@ -201,7 +207,91 @@ int main(void)
 		  fPrędkośćMax = 0.0f;
 	  }
 
-	  //if (cStatusPomiaru & SP_GOTOWY)
+	  nCzas = PobierzCzasT7();
+	  //Pojawił się piewszy impuls pomiaru
+	  if (cStatusPomiaru & SP_TRWA)
+	  {
+		  nCzasPetliGłównej = MinalCzas2(nPoprzedniCzasPetliGłównej, nCzas);
+		  PredykcjaFiltraKalmanaPrędkościRolek5X2Z((float)nCzasPetliGłównej / 1000000);
+	  }
+	  nPoprzedniCzasPetliGłównej = nCzas;
+
+	//oblicz prędkość ostatniego pomiaru dla każdego czujnika
+	if (cStatusPomiaru & SP_POMIAR_ROLKI1)
+	{
+		cStatusPomiaru &= ~SP_POMIAR_ROLKI1;
+		cIndeks = cIndeksPomiaru[0] - 1;	//cIndeksPomiaru[] jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar
+		if (stPomiary[cIndeks].nCzas1)
+		{
+			stPomiary[cIndeks].fPrędkość1 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas1 / 1000000);	//średnia prędkość na bieżącym odcinku
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 1
+			AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość1);
+			stPomiary[cIndeks].fKalmanDroga = fX[0];
+			stPomiary[cIndeks].fKalmanPredkość = fX[1];
+			stPomiary[cIndeks].fKalmanPrzyspieszenie = fX[2];
+			//znajdź maksymalną prędkość
+			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość1)
+				fPrędkośćMax = stPomiary[cIndeks].fPrędkość1;
+		}
+		else
+			stPomiary[cIndeks].fPrędkość1 = 0.0f;
+	}
+
+	if (cStatusPomiaru & SP_POMIAR_ROLKI2)
+	{
+		cStatusPomiaru &= ~SP_POMIAR_ROLKI2;
+		cIndeks = cIndeksPomiaru[1] - 1;
+		if (stPomiary[cIndeks].nCzas2)
+		{
+			stPomiary[cIndeks].fPrędkość2 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas2 / 1000000);	//średnia prędkość na bieżącym odcinku
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+			AktulizacjaRolką2FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość2);
+
+			//znajdź maksymalną prędkość
+			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość2)
+				fPrędkośćMax = stPomiary[cIndeks].fPrędkość2;
+		}
+		else
+			stPomiary[cIndeks].fPrędkość2 = 0.0f;
+	}
+
+	if (cStatusPomiaru & SP_POMIAR_ROLKI3)
+	{
+		cStatusPomiaru &= ~SP_POMIAR_ROLKI3;
+		cIndeks = cIndeksPomiaru[2] - 1;
+		if (stPomiary[cIndeks].nCzas3)
+		{
+			stPomiary[cIndeks].fPrędkość3 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+			//AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
+
+			//znajdź maksymalną prędkość
+			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość3)
+				fPrędkośćMax = stPomiary[cIndeks].fPrędkość3;
+		}
+		else
+			stPomiary[cIndeks].fPrędkość3 = 0.0f;
+	}
+
+	if (cStatusPomiaru & SP_POMIAR_ROLKI4)
+	{
+		cStatusPomiaru &= ~SP_POMIAR_ROLKI4;
+		cIndeks = cIndeksPomiaru[3] - 1;
+		if (stPomiary[cIndeks].nCzas4)
+		{
+			stPomiary[cIndeks].fPrędkość4 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+			//AktulizacjaRolką1FiltraKalmanaPrędkościRolek5X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
+
+			//znajdź maksymalną prędkość
+			if (fPrędkośćMax < stPomiary[cIndeks].fPrędkość4)
+				fPrędkośćMax = stPomiary[cIndeks].fPrędkość4;
+		}
+		else
+			stPomiary[cIndeks].fPrędkość4 = 0.0f;
+	}
+
+	  //przyszły nowe dane, więc przerysuj wykres
 	  if (cStatusPomiaru & SP_NOWY_POMIAR)
 	  {
 		  //oblicz liczbę pomiarów
@@ -227,49 +317,16 @@ int main(void)
 		  }
 		  fWspSkaliY = (float)OLED_WYSOKOSC / (((float)OBWOD_ROLKI / 1000) / ((float)nMinCzas / 1000000));	//tyle m/s na wysokości ekranu
 
-		  //oblicz prędkości na poszczególnych etapach i znajdź maksymalną prędkość
-		  fDroga = (float)OBWOD_ROLKI / 1000;
-		  for (uint8_t n=0; n<cLiczbaPomiarów; n++)
-		  {
-			  if (stPomiary[n].nCzas1)
-			  {
-				  stPomiary[n].fPrędkość1 = fDroga / ((float)stPomiary[n].nCzas1 / 1000000);
-				  if (fPrędkośćMax < stPomiary[n].fPrędkość1)
-					  fPrędkośćMax = stPomiary[n].fPrędkość1;
-			  }
-			  else
-				  stPomiary[n].fPrędkość1 = 0.0f;
-
-			  if (stPomiary[n].nCzas2)
-			  {
-				  stPomiary[n].fPrędkość2 = fDroga / ((float)stPomiary[n].nCzas2 / 1000000);
-				  if (fPrędkośćMax < stPomiary[n].fPrędkość2)
-					  fPrędkośćMax = stPomiary[n].fPrędkość2;
-			  }
-			  else
-				  stPomiary[n].fPrędkość2 = 0.0f;
-
-			  if (stPomiary[n].nCzas3)
-			  {
-				  stPomiary[n].fPrędkość3 = fDroga / ((float)stPomiary[n].nCzas3 / 1000000);
-				  if (fPrędkośćMax < stPomiary[n].fPrędkość3)
-					  fPrędkośćMax = stPomiary[n].fPrędkość3;
-			  }
-			  else
-				  stPomiary[n].fPrędkość3 = 0.0f;
-
-			  if (stPomiary[n].nCzas4)
-			  {
-				  stPomiary[n].fPrędkość4 = fDroga / ((float)stPomiary[n].nCzas4 / 1000000);
-				  if (fPrędkośćMax < stPomiary[n].fPrędkość4)
-					  fPrędkośćMax = stPomiary[n].fPrędkość4;
-			  }
-			  else
-				  stPomiary[n].fPrędkość4 = 0.0f;
-		  }
 		  OLED_CzyśćBuforEkranu();
+		  //Jako pierwszy wyświetla napis aby można było na nim rysować wykresy
+		  sprintf(cBuforNapisów, "V  =%.2f  ", fPrędkośćMax);
+		  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
+		  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
+		  OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
+		  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
+		  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 
-		  //rysuj wykres prędkości wózka
+		  //rysuj wykresy prędkości wózka ze wszystkich 4 rolek
 		  for (uint8_t x=0; x<cLiczbaPomiarów; x++)
 		  {
 			  cPozX = x * fWspSkaliX;
@@ -282,23 +339,16 @@ int main(void)
 			  cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość4 * fWspSkaliY;
 			  OLED_RysujPiksel(cPozX, cPozY, 1);
 		  }
-
-		  sprintf(cBuforNapisów, "V  =%.2f  ", fPrędkośćMax);
-		  OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
-		  OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
-		  OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
-		  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
-		  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 		  OLED_OdswiezEkran();
 	  }
 
-	  //koniec pomiaru, zapisz na kartę i wyslij telemetrię
+	  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
 	  if (cStatusPomiaru & SP_GOTOWY)
 	  {
 		  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
 		  if (cBłąd == BLAD_OK)
 		  {
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	////błyśnij LED gdy poprawnie wysłał telemetrię
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
 			  HAL_Delay(100);
 		  }
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
@@ -321,16 +371,8 @@ int main(void)
 		  nCzas = MinalCzas(nCzasPoczatkuPomiaru);
 		  if ((nCzas > 5000000) && (cStatusPomiaru & SP_ROZPOCZETY)  && (cStatusPomiaru & SP_TRWA))	//timeout 5 sekund
 		  {
-				  cBłąd = ZakończPomiarTimerem();
-				  cStatusPomiaru |= SP_GOTOWY;
-
-			  if (cStatusPomiaru & SP_PIERWSZY_POMIAR)	//licznik oczekiwania wyświetlaj tylko dla pierwszego pomiaru aby nie nadpisywać wczesniejszego wyniku
-			  {
-				  OLED_CzyśćBuforEkranu();
-				  sprintf(cBuforNapisów, "Czeka na start %d", cLicznikOczekiwania++);
-				  OLED_RysujNapis(cBuforNapisów, 0, 0, &Font_7x10);
-				  OLED_OdswiezEkran();
-			  }
+			  cBłąd = ZakończPomiarTimerem();
+			  cStatusPomiaru |= SP_GOTOWY;
 		  }
 	  }
 
@@ -346,6 +388,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_CRSInitTypeDef RCC_CRSInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
   */
@@ -356,14 +399,9 @@ void SystemClock_Config(void)
 
   /** Initializes the CPU, AHB and APB buses clocks
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE
-                              |RCC_OSCILLATORTYPE_MSIK;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
-  RCC_OscInitStruct.MSIKState = RCC_MSI_ON;
-  RCC_OscInitStruct.MSIKSource = RCC_MSI_RC0;
-  RCC_OscInitStruct.MSIKDiv = RCC_MSI_DIV2;
-
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -384,6 +422,21 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  /** Enable the CRS clock
+  */
+  __HAL_RCC_CRS_CLK_ENABLE();
+
+  /** Configures CRS
+  */
+  RCC_CRSInitStruct.Prescaler = RCC_CRS_SYNC_DIV1;
+  RCC_CRSInitStruct.Source = RCC_CRS_SYNC_SOURCE_USB;
+  RCC_CRSInitStruct.Polarity = RCC_CRS_SYNC_POLARITY_RISING;
+  RCC_CRSInitStruct.ReloadValue = __HAL_RCC_CRS_RELOADVALUE_CALCULATE(48000000,1000);
+  RCC_CRSInitStruct.ErrorLimitValue = 34;
+  RCC_CRSInitStruct.HSI48CalibrationValue = 32;
+
+  HAL_RCCEx_CRSConfig(&RCC_CRSInitStruct);
 }
 
 /**

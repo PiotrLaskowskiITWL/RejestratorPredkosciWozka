@@ -46,6 +46,9 @@ typedef struct
 	float fPrędkość2;
 	float fPrędkość3;
 	float fPrędkość4;
+	float fKalmanDroga;
+	float fKalmanPredkość;
+	float fKalmanPrzyspieszenie;
 	uint8_t cLiczbaPomiarów;
 } stPomiary_t;
 /* USER CODE END ET */
@@ -89,14 +92,17 @@ void Error_Handler(void);
 #define SKOK_X_WYKRESU		(DISP_X_SIZE / LICZBA_POMIAROW)
 #define MASA_BSP			78.0f	//masa BSP [kg]
 #define SILA_TLOKA			(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
+#define OKRES_PETLI			100	//czas obiegu pętli głównej programu [us]
 
 //znaczenia bitów zmiennej cStatusPomiaru
-#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty - timer ruszył z pomiarem
-#define SP_PIERWSZY_POMIAR	0x02	//specjalny warunek rysowania ekranu pierwszego pomiaru
-#define SP_TRWA				0x04	//pojawiły się impulsy, które rozpoczeły pomiar, bez nich nie ma zakończenia pomiaru
-#define SP_NOWY_POMIAR		0x08	//pojawił się nowy impuls, więc resetuj timeout
-
-#define SP_GOTOWY			0x10	//wystąpił timeout po tym jak zaczęły przychodzić impulsy
+#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty - timer został uruchomiony i czeka na pomiar
+#define SP_TRWA				0x02	//pojawiły się impulsy, które rozpoczeły pomiar, bez nich nie uruchomi się timeout kończący
+#define SP_NOWY_POMIAR		0x04	//pojawił się nowy impuls, więc resetuj timeout i czyść bit przy każdym resecie. Ciągły strumień bitów wydłuża pomiar
+#define SP_GOTOWY			0x08	//wystąpił kilkusekundowy timeout po tym jak zaczęły przychodzić impulsy
+#define SP_POMIAR_ROLKI1	0x10	//pojawił się nowy impuls od rolki 1
+#define SP_POMIAR_ROLKI2	0x20	//pojawił się nowy impuls od rolki 2
+#define SP_POMIAR_ROLKI3	0x30	//pojawił się nowy impuls od rolki 3
+#define SP_POMIAR_ROLKI4	0x80	//pojawił się nowy impuls od rolki 4
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

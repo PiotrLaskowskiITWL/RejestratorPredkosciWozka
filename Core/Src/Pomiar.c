@@ -3,7 +3,7 @@
 // Obsługa pomiaru czasów obrotu rolek precgwytywana timerem 2
 //
 // Utworzone: 28 paź 2026
-// Autor: Piotr
+// Autor: Piotr Laskowski
 // (c) ITWL 2026
 //////////////////////////////////////////////////////////////////////////////
 #include "Pomiar.h"
@@ -14,7 +14,7 @@
 extern TIM_HandleTypeDef htim2;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 uint8_t cIndeksPomiaru[4];
-uint8_t cStatusPomiaru = SP_PIERWSZY_POMIAR;
+uint8_t cStatusPomiaru;
 uint32_t nPomiar, nPoprzedniPomiar[4];
 extern uint32_t nCzasPoczatkuPomiaru;
 
@@ -92,58 +92,75 @@ uint8_t ZakończPomiarTimerem(void)
 ////////////////////////////////////////////////////////////////////////////////
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-	if ((htim->Instance == TIM2) && (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1))
+	if (htim->Instance == TIM2)
 	{
-		nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-		if (cIndeksPomiaru[0] > 0)
-			stPomiary[cIndeksPomiaru[0]].nCzas1 = MinalCzas2(nPoprzedniPomiar[0], nPomiar);
-		nPoprzedniPomiar[0] = nPomiar;
-		cIndeksPomiaru[0]++;
-		if (cIndeksPomiaru[0] == ROZMIAR_BUF_POMIAROW)
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
 		{
-			HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_1);
-			cStatusPomiaru |= SP_GOTOWY;
+			nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+			if (nPoprzedniPomiar[0] > 0)
+			{
+				stPomiary[cIndeksPomiaru[0]].nCzas1 = MinalCzas2(nPoprzedniPomiar[0], nPomiar);
+				cStatusPomiaru |= SP_POMIAR_ROLKI1;			//pojawił się nowy impuls od rolki 1
+				cIndeksPomiaru[0]++;
+			}
+			nPoprzedniPomiar[0] = nPomiar;
+			if (cIndeksPomiaru[0] == ROZMIAR_BUF_POMIAROW)
+			{
+				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_1);
+				cStatusPomiaru |= SP_GOTOWY;
+			}
 		}
-	}
-	if ((htim->Instance == TIM2) && (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2))
-	{
-		nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-		if (cIndeksPomiaru[1] > 0)
-			stPomiary[cIndeksPomiaru[1]].nCzas2 = MinalCzas2(nPoprzedniPomiar[1], nPomiar);
-		nPoprzedniPomiar[1] = nPomiar;
-		cIndeksPomiaru[1]++;
-		if (cIndeksPomiaru[1] == ROZMIAR_BUF_POMIAROW)
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
 		{
-			HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_2);
-			cStatusPomiaru |= SP_GOTOWY;
+			nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+			if (nPoprzedniPomiar[1] > 0)
+			{
+				stPomiary[cIndeksPomiaru[1]].nCzas2 = MinalCzas2(nPoprzedniPomiar[1], nPomiar);
+				cStatusPomiaru |= SP_POMIAR_ROLKI2;		//pojawił się nowy impuls od rolki 2
+				cIndeksPomiaru[1]++;
+			}
+			nPoprzedniPomiar[1] = nPomiar;
+			if (cIndeksPomiaru[1] == ROZMIAR_BUF_POMIAROW)
+			{
+				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_2);
+				cStatusPomiaru |= SP_GOTOWY;
+			}
 		}
-	}
-	if ((htim->Instance == TIM2) && (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3))
-	{
-		nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
-		if (cIndeksPomiaru[2] > 0)
-			stPomiary[cIndeksPomiaru[2]].nCzas3 = MinalCzas2(nPoprzedniPomiar[2], nPomiar);
-		nPoprzedniPomiar[2] = nPomiar;
-		cIndeksPomiaru[2]++;
-		if (cIndeksPomiaru[2] == ROZMIAR_BUF_POMIAROW)
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
 		{
-			HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_3);
-			cStatusPomiaru |= SP_GOTOWY;
+			nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
+			if (nPoprzedniPomiar[2] > 0)
+			{
+				stPomiary[cIndeksPomiaru[2]].nCzas3 = MinalCzas2(nPoprzedniPomiar[2], nPomiar);
+				cStatusPomiaru |= SP_POMIAR_ROLKI3;		//pojawił się nowy impuls od rolki 3
+				cIndeksPomiaru[2]++;
+			}
+			nPoprzedniPomiar[2] = nPomiar;
+			if (cIndeksPomiaru[2] == ROZMIAR_BUF_POMIAROW)
+			{
+				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_3);
+				cStatusPomiaru |= SP_GOTOWY;
+			}
 		}
-	}
-	if ((htim->Instance == TIM2) && (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4))
-	{
-		nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
-		if (cIndeksPomiaru[3] > 0)
-			stPomiary[cIndeksPomiaru[3]].nCzas4 = MinalCzas2(nPoprzedniPomiar[3], nPomiar);
-		nPoprzedniPomiar[3] = nPomiar;
-		cIndeksPomiaru[3]++;
-		if (cIndeksPomiaru[3] == ROZMIAR_BUF_POMIAROW)
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4)
 		{
-			HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_4);
-			cStatusPomiaru |= SP_GOTOWY;
+			nPomiar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
+			if (nPoprzedniPomiar[3] > 0)
+			{
+				stPomiary[cIndeksPomiaru[3]].nCzas4 = MinalCzas2(nPoprzedniPomiar[3], nPomiar);
+				cStatusPomiaru |= SP_POMIAR_ROLKI4;		//pojawił się nowy impuls od rolki 4
+				cIndeksPomiaru[3]++;
+			}
+			nPoprzedniPomiar[3] = nPomiar;
+			if (cIndeksPomiaru[3] == ROZMIAR_BUF_POMIAROW)
+			{
+				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_4);
+				cStatusPomiaru |= SP_GOTOWY;
+			}
 		}
+
+		//dowolny pomiar resetuje timeout kończący pomiar oraz ustawia flagi nowych danych
+		cStatusPomiaru |= SP_NOWY_POMIAR | SP_TRWA;
+		nCzasPoczatkuPomiaru = PobierzCzasT7();
 	}
-	cStatusPomiaru |= SP_NOWY_POMIAR | SP_TRWA;
-	nCzasPoczatkuPomiaru = PobierzCzasT7();
 }

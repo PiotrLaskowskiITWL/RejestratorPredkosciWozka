@@ -50,10 +50,6 @@ extern "C" {
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
-VOID USBD_CDC_ACM_Activate(VOID *cdc_acm_instance);
-VOID USBD_CDC_ACM_Deactivate(VOID *cdc_acm_instance);
-VOID USBD_CDC_ACM_ParameterChange(VOID *cdc_acm_instance);
-
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */

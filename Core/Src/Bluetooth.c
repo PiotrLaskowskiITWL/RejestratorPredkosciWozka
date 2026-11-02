@@ -3,17 +3,20 @@
 // Obsługa przesyłania telemetrii UART-em przez moduł bluettoth
 //
 // Utworzone: 28 paź 2026
-// Autor: Piotr
+// Autor: Piotr Laskowski
 // (c) ITWL 2026
 //////////////////////////////////////////////////////////////////////////////
 #include "Bluetooth.h"
 #include "KartaSD.h"
 #include "KodyBledow.h"
+#include <stdio.h>
 
 
 extern UART_HandleTypeDef huart1;
 char cBuforTelemetrii[ROZMIAR_BUFORA_TELEMETRII];
 extern uint8_t cLiczbaPomiarów;
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja wysyła dane telemetryczne przez bluetooth aby mogły być odebrane dowolnym terminalem
@@ -34,5 +37,22 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n+1, stPomiary + n);
 		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, 10);
 	}
+	return cBłąd;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Przełacza moduł bluetooth HC-06 z trybu poleceń w tryb danych - wydaje się że nie działa
+// Parametry: brak
+// Zwraca: kod błędu
+/////////////////////////////////////////////////////////////////////////////
+uint8_t PrzełączBTwTrybDanych(void)
+{
+	uint8_t cBłąd = BLAD_OK;
+	int nRozmiar;
+
+	nRozmiar = sprintf(cBuforTelemetrii, "AT+RESET\r\n");
+	cBłąd = HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, 10);
 	return cBłąd;
 }
