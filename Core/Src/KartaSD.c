@@ -12,9 +12,8 @@
 #include <stdio.h>
 
 uint8_t cStatusKarty = 0;
-uint8_t cLicznikPomiarow = 1;
+uint8_t cLicznikPomiarow;
 ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
-//extern UART_HandleTypeDef huart1;
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 extern uint8_t cLiczbaPomiarów;
@@ -42,7 +41,7 @@ uint8_t CzyKartaObecna(void)
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja zapisuje dane pomiarowe na karcie
 // Parametry:
-//  *stPomiary - wskaźnik na tablice struktur przechowująceych dane pomiarowe
+//  *stPomiary - wskaźnik na tablice struktur przechowujących dane pomiarowe
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
@@ -121,11 +120,123 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	if (nStatus)
 		return BLAD_ZAPISU_KARTY;
 
-	nStatus =  fx_media_close(&sdio_disk);
+	/*nStatus =  fx_media_close(&sdio_disk);
 	if (nStatus)
 		cBłąd = BLAD_ZAPISU_KARTY;
 	else
-		cStatusKarty = 0;	//karta nie jest już dłużej zamontowana
+		cStatusKarty = 0;	//karta nie jest już dłużej zamontowana*/
+	return cBłąd;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja zapisuje do pliku na karcie indeks kolejnego pomiaru
+// Parametry:
+//  cIndeksPomiaru - Indeks kolejnego pomiaru
+// Zwraca: kod błędu
+////////////////////////////////////////////////////////////////////////////////
+uint8_t ZapiszIndeksPomiaruNaKarte(uint8_t cIndeksPomiaru)
+{
+	uint8_t cBłąd = BLAD_OK;
+	UINT nStatus;
+	int nRozmiar;
+
+	cBłąd = CzyKartaObecna();
+	if (cBłąd)
+	{
+		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
+		return BLAD_BRAK_KARTY;
+	}
+
+	if (cStatusKarty != STATSD_MEDIA_OTWARTE)
+	{
+		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
+		if (nStatus)
+			return BLAD_OTWARCIA_KARTY;
+		cStatusKarty = STATSD_MEDIA_OTWARTE;
+	}
+
+	//Gdy nie ma pliku to go utwórz. Jeżeli istnieje, to funkcja zwraca kod błędu FX_ALREADY_CREATED, więc nie traktuję tego jako błąd
+	nStatus = fx_file_create(&sdio_disk, "IndeksPomiaru.txt");
+	if ((nStatus != FX_ALREADY_CREATED) && (nStatus != FX_SUCCESS))
+		return BLAD_ZAPISU_KARTY;
+
+	nStatus = fx_file_open(&sdio_disk, &fx_file, "IndeksPomiaru.txt", FX_OPEN_FOR_WRITE);
+	if (nStatus)
+		return BLAD_ZAPISU_KARTY;
+
+	nStatus = fx_file_seek(&fx_file, 0);
+	if (nStatus)
+		return BLAD_OTWARCIA_KARTY;
+
+	nRozmiar = sprintf(cBuforNapisów, "%d", cIndeksPomiaru);
+
+	nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
+	if (nStatus)
+	return BLAD_ZAPISU_KARTY;
+
+	nStatus =  fx_file_close(&fx_file);
+	if (nStatus)
+		return BLAD_ZAPISU_KARTY;
+
+	nStatus = fx_media_flush(&sdio_disk);
+	if (nStatus)
+		cBłąd = BLAD_ZAPISU_KARTY;
+
+	return cBłąd;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja pobiera z karty ostatnio zapisany indeks pomiaru
+// Parametry:
+//  *cIndeksPomiaru - wskaźnika na Indeks kolejnego pomiaru
+// Zwraca: kod błędu
+////////////////////////////////////////////////////////////////////////////////
+uint8_t CzytajIndeksPomiaruZKarty(uint8_t *cIndeksPomiaru)
+{
+	uint8_t cBłąd = BLAD_OK;
+	UINT nStatus;
+	int nRozmiar;
+
+	cBłąd = CzyKartaObecna();
+	if (cBłąd)
+	{
+		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
+		return BLAD_BRAK_KARTY;
+	}
+
+	if (cStatusKarty != STATSD_MEDIA_OTWARTE)
+	{
+		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
+		if (nStatus)
+			return BLAD_OTWARCIA_KARTY;
+		cStatusKarty = STATSD_MEDIA_OTWARTE;
+	}
+
+	nStatus = fx_file_open(&sdio_disk, &fx_file, "IndeksPomiaru.txt", FX_OPEN_FOR_WRITE);
+	if (nStatus)
+		return BLAD_OTWARCIA_KARTY;
+
+	nStatus = fx_file_seek(&fx_file, 0);
+	if (nStatus)
+		return BLAD_OTWARCIA_KARTY;
+
+	nStatus = fx_file_read(&fx_file, cBuforNapisów, 3, (ULONG*)&nRozmiar);
+	if (nRozmiar)
+	{
+		sscanf(cBuforNapisów, "%d", &nRozmiar);
+		*cIndeksPomiaru = (uint8_t)nRozmiar;
+	}
+	else
+		*cIndeksPomiaru = 0;
+
+	nStatus =  fx_file_close(&fx_file);
+	if (nStatus)
+		cBłąd = BLAD_ZAPISU_KARTY;
+
 	return cBłąd;
 }
 
@@ -139,9 +250,10 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 ////////////////////////////////////////////////////////////////////////////////
 int FormatujNagłówekDanych(char *cBufor)
 {
-	//return sprintf(cBufor, "\nNr\tt1[us]\tv1[m/s]\tt2[us]\tv2[m/s]\tt3[us]\tv3[m/s]\tt4[us]\tv4[m/s]\r\n");	//wersja z samą tabulcją
-	//return sprintf(cBufor, "\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\r\n");		//wersja z tabulacją i spacją
-	return sprintf(cBufor, "\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t BladL1\t BladL2\t Blad3\t BladL4\r\n");		//wersja z filtrem Kalmana, tabulacją i spacją
+	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
+		*(cBufor + n) = 0;
+
+	return sprintf(cBufor, "\nNr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
 }
 
 
@@ -159,11 +271,13 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 	char *cZnak;
 	int nRozmiar;
 
-	//nRozmiar = sprintf(cBufor, "%u\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\t%lu\t%.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
-	//nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\r\n", cIndeks, stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4);
-	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n", cIndeks,
-			stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4,
-			stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4);
+	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
+		*(cBufor + n) = 0;
+
+	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.2f\t %.2f\t %.2f\t %.2f\r\n", cIndeks,
+				stPomiary->nCzas1, stPomiary->fPrędkość1, stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->nCzas3, stPomiary->fPrędkość3, stPomiary->nCzas4, stPomiary->fPrędkość4,
+				stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4,
+				stPomiary->fOdlMahalanobisaV1, stPomiary->fOdlMahalanobisaV2, stPomiary->fOdlMahalanobisaV3, stPomiary->fOdlMahalanobisaV4);
 
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do

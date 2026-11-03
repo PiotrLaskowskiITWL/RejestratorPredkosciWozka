@@ -11,7 +11,6 @@
 #include "main.h"
 
 
-#define ROZMIAR_BUFORA_TELEMETRII	100
 
 uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary);
 uint8_t PrzełączBTwTrybDanych(void);

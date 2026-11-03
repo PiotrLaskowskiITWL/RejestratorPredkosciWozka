@@ -13,7 +13,7 @@
 
 
 extern UART_HandleTypeDef huart1;
-char cBuforTelemetrii[ROZMIAR_BUFORA_TELEMETRII];
+char cBuforTelemetrii[ROZMIAR_BUF_NAPISOW];
 extern uint8_t cLiczbaPomiarów;
 
 
@@ -29,13 +29,13 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 	int nRozmiar;
 
 	nRozmiar = FormatujNagłówekDanych(cBuforTelemetrii);	//nagłówek danych taki sam jak na karcie
-	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, 10);
+	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
 
 	//wykonaj obliczenia prędkości dla wszystkich danych
 	for (uint8_t n=0; n<cLiczbaPomiarów; n++)
 	{
 		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n+1, stPomiary + n);
-		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, 10);
+		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
 	}
 	return cBłąd;
 }

@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// Filtra Kalmana mierzący prędkości wózka wyrzutni z 2 rolek
-//
+// Filtra Kalmana mierzący prędkości wózka wyrzutni z 4 rolek
+// Zasilany pomiarami drogi i predkości rolek wylicza drogę, prędkość, przyspieszenie oraz błędy (poślizgi) każdej z rolek
 //
 // Autor: Piotr Laskowski
 // (c) ITWL 2026
@@ -72,8 +72,8 @@ static arm_matrix_instance_f32 mTempS1B  = {KSTAN, 1, fTempS1B};			//macierz Sta
 
 
 extern RNG_HandleTypeDef hrng;
-
-
+extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
+extern uint8_t cIndeksPomiaru[LICZBA_CZUJNIKOW];
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 
 
 	//inicjuj pierwszy pomiar i wektor stanu
-	fX[0] = (float)OBWOD_ROLKI / 1000;		//droga - pierwszy pomiar jest po wykonaniu jednego obrotu
+	fX[0] = (float)OBWOD_ROLKI / 1000;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
 	fX[1] = 0.00001f;		//prędkość
 	fX[2] = 0.00001f;		//przyspieszenie
 	fX[3] = 0.00001f;		//błąd prędkości rolki 1
@@ -286,7 +286,11 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 {
 	uint8_t cBłąd = BLAD_OK;
 
-	fZ[0] = fPredkość;	//prędkość pionowa
+	fZ[0] = fDroga;
+	fZ[1] = fPredkość;
+
+	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
+	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV1 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
@@ -365,7 +369,12 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 {
 	uint8_t cBłąd = BLAD_OK;
 
-	fZ[0] = fPredkość;	//prędkość pionowa
+	fZ[0] = fDroga;
+	fZ[1] = fPredkość;
+
+	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
+	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
@@ -445,7 +454,12 @@ uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 {
 	uint8_t cBłąd = BLAD_OK;
 
-	fZ[0] = fPredkość;	//prędkość pionowa
+	fZ[0] = fDroga;
+	fZ[1] = fPredkość;
+
+	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
+	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV3 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
@@ -525,7 +539,11 @@ uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 {
 	uint8_t cBłąd = BLAD_OK;
 
-	fZ[0] = fPredkość;	//prędkość pionowa
+	fZ[0] = fDroga;
+	fZ[1] = fPredkość;
+
+	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
+	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV4 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
@@ -589,5 +607,22 @@ uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	//finalne sumowanie ((I-K(n)*H)*P(n-1)*(I*K(n)*H)^T) + (K(n)*R(n)*K(n)^T) -> P(n)
 	cBłąd |= arm_mat_add_f32(&mTempSSB, &mTempSSA, &mP);
 	return cBłąd;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja liczy odległość Mahalanobisa okręślającą jak daleko dany pomiar jest od wartości estymowanej.
+// Pozwala w ten sposób odrzucić wartości mocno odstające od trendu
+// źródło: Alex Becker - "Kalman filter from the ground up" str.334
+// Parametry:
+//  fPomiar - odeniany pomiar
+//  fEstymata - wcześnijesza estymata pomiaru z etapu predykcji
+//  fWariancja - wariancja pomiaru (kwadrat odchylenia standardowego)
+// Zwraca: odległość Mahalanobisa wyrażoną w odchyleniach standardowych sigma
+////////////////////////////////////////////////////////////////////////////////
+float OdległośćMahalanobisa(float fPomiar, float fEstymata, float fWariancja)
+{
+	return sqrtf(powf(fEstymata - fPomiar, 2) / fWariancja);
 }
 

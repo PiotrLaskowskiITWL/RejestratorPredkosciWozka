@@ -38,21 +38,25 @@ extern "C" {
 /* USER CODE BEGIN ET */
 typedef struct
 {
-	uint32_t nCzas1;
+	uint32_t nCzas1;	//zmierzony czas obrotu rolki 1 [us]
 	uint32_t nCzas2;
 	uint32_t nCzas3;
 	uint32_t nCzas4;
-	float fPrędkość1;
+	float fPrędkość1;	//prędkość obliczona dla obrotu rolki 1 [m/s]
 	float fPrędkość2;
 	float fPrędkość3;
 	float fPrędkość4;
-	float fKalmanDroga;
-	float fKalmanPredkość;
-	float fKalmanPrzyspieszenie;
-	float fBłądDrogi1;
+	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
+	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]
+	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]
+	float fBłądDrogi1;			//poślizg rolki 1 względem estymowanej drogi [m]
 	float fBłądDrogi2;
 	float fBłądDrogi3;
 	float fBłądDrogi4;
+	float fOdlMahalanobisaV1;	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
+	float fOdlMahalanobisaV2;
+	float fOdlMahalanobisaV3;
+	float fOdlMahalanobisaV4;
 	uint8_t cLiczbaPomiarów;
 } stPomiary_t;
 /* USER CODE END ET */
@@ -83,7 +87,7 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define ROZMIAR_BUF_NAPISOW		150
+#define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	200
 #define LICZBA_CZUJNIKOW	4
 #define	DROGA_CALKOWITA		9500U	//długość bieżni wyrzutni [mm]

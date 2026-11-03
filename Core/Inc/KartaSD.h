@@ -20,6 +20,8 @@
 
 uint8_t CzyKartaObecna(void);
 uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary);
+uint8_t CzytajIndeksPomiaruZKarty(uint8_t *cIndeksPomiaru);
+uint8_t ZapiszIndeksPomiaruNaKarte(uint8_t cIndeksPomiaru);
 int FormatujNagłówekDanych(char *cBufor);
 int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary);
 

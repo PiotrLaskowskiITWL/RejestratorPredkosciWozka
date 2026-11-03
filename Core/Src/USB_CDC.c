@@ -11,17 +11,17 @@
 #include "KodyBledow.h"
 #include <stdio.h>
 #include "Bluetooth.h"
-#include "ux_api.h"
-#include "ux_device_class_cdc_acm.h"
+//#include "ux_api.h"
+//#include "ux_device_class_cdc_acm.h"
 
 
-char cBuforCDC[ROZMIAR_BUFORA_TELEMETRII];
+char cBuforCDC[ROZMIAR_BUF_NAPISOW];
 extern uint8_t cLiczbaPomiarów;
 extern PCD_HandleTypeDef hpcd_USB_DRD_FS;
-extern UX_SLAVE_CLASS_CDC_ACM *cdc_acm_global;
+//extern UX_SLAVE_CLASS_CDC_ACM *cdc_acm_global;
 uint8_t cCDC_Aktywne;
 
-////////////////////////////////////////////////////////////////////////////////
+/*///////////////////////////////////////////////////////////////////////////////
 // Funkcja wysyła dane telemetryczne przez CDC aby mogły być odebrane dowolnym terminalem
 // Parametry: *stPomiary - wskaźnik na tablicę ze strukturą pomiarową
 // Zwraca: kod błędu
@@ -48,4 +48,4 @@ uint8_t WyślijTelemetrieCDC(stPomiary_t *stPomiary)
 		}
 	}
 	return cBłąd;
-}
+}*/

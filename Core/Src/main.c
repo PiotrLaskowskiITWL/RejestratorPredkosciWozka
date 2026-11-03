@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "app_filex.h"
-#include "app_usbx.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -31,6 +30,7 @@
 #include "Pomiar.h"
 #include "Kalman.h"
 #include <arm_math.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,12 +76,13 @@ stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 uint8_t cBłąd;
 uint8_t cLiczbaPomiarów;
 extern uint8_t cStatusPomiaru;
-extern uint8_t cIndeksPomiaru[4];
+extern uint8_t cIndeksPomiaru[LICZBA_CZUJNIKOW];
 uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
 float fPrędkośćMax;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
+extern uint8_t cLicznikPomiarow;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,7 +149,6 @@ int main(void)
   MX_SDMMC1_SD_Init();
   MX_FileX_Init();
   MX_TIM7_Init();
-  MX_USBX_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
   InicjujPomiarTimerem();
@@ -159,6 +159,7 @@ int main(void)
   //Podczas uruchomienia wyświetl logo przez sekudę
     RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width)/2, 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
     OLED_OdswiezEkran();
+	CzytajIndeksPomiaruZKarty(&cLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numeracje i nie nadpisywać swieżych pomiarów
     HAL_Delay(1000);
     OLED_CzyśćBuforEkranu();
   while (1)
@@ -371,6 +372,7 @@ int main(void)
 			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	////błyśnij LED gdy poprawnie zapisał dane na kartę
 			  HAL_Delay(100);
 		  }
+		  cBłąd = ZapiszIndeksPomiaruNaKarte(cLicznikPomiarow);
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
 		  HAL_Delay(100);
 		  cStatusPomiaru = 0;	//kasuj wszystkie flagi

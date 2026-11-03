@@ -15,7 +15,8 @@
 #define KPOM	2	//rozmiar wektora pomiaru: droga i prędkość
 
 #define WARIANCJA_ZRYWUL	5.0e-1f		//
-#define WARIANCJA_POSLIZGU 	7.0e-9f;
+#define WARIANCJA_POSLIZGU 	7.0e-9f
+#define WARIANCJA_PREDKOSCI	5.0e-2f
 
 uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float *fVRolki1, float *fVRolki2, float *fCzas1, float *fCzas2);
 uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void);
@@ -24,6 +25,6 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość);
 uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość);
 uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość);
-
+float OdległośćMahalanobisa(float fPomiar, float fEstymata, float fWariancja);
 
 #endif /* INC_WYRZUTNIA_H_ */
