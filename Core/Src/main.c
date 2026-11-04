@@ -84,7 +84,7 @@ uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
 float fPrędkośćMax;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
-extern uint8_t cLicznikPomiarow;
+extern uint16_t sLicznikPomiarow;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -166,7 +166,7 @@ int main(void)
 	OLED_RysujNapis(cBuforNapisów, 100, 54, &Font_7x10);
 
     OLED_OdswiezEkran();
-	CzytajIndeksPomiaruZKarty(&cLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numeracje i nie nadpisywać swieżych pomiarów
+	CzytajIndeksPomiaruZKarty(&sLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numeracje i nie nadpisywać swieżych pomiarów
     OLED_CzyśćBuforEkranu();
   while (1)
   {
@@ -200,12 +200,12 @@ int main(void)
 		  stPomiary[n].nCzas4 = ((float)OBWOD_ROLKI / 1000) / fPredkośćRolki4 * 1000000;	//czas w mikrosekundach
 	  }*/
 
-	  if ((cStatusPomiaru & SP_ROZPOCZETY) != SP_ROZPOCZETY)
+	  if ((cStatusPomiaru & SP_UZBROJONY) != SP_UZBROJONY)
 	  {
 		  InicjujFiltrKalmanaPrędkościRolek7X2Z();
 		  cBłąd = RozpocznijPomiarTimerem();
 		  nCzasPoczatkuPomiaru = PobierzCzasT7();
-		  cStatusPomiaru |= SP_ROZPOCZETY;
+		  cStatusPomiaru |= SP_UZBROJONY;
 		  cLiczbaPomiarów = 0;
 		  fPrędkośćMax = 0.0f;
 	  }
@@ -400,10 +400,10 @@ int main(void)
 		  cBłąd = ZapiszPomiarNaKarte(stPomiary);
 		  if (cBłąd == BLAD_OK)
 		  {
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	////błyśnij LED gdy poprawnie zapisał dane na kartę
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
 			  HAL_Delay(100);
+			  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
 		  }
-		  cBłąd = ZapiszIndeksPomiaruNaKarte(cLicznikPomiarow);
 		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
 		  HAL_Delay(100);
 		  cStatusPomiaru = 0;	//kasuj wszystkie flagi
@@ -412,7 +412,7 @@ int main(void)
 	  else	//cStatusPomiaru nie jest SP_GOTOWY. Sprawdź czy wystąpił timeout
 	  {
 		  nCzas = MinalCzas(nCzasPoczatkuPomiaru);
-		  if ((nCzas > 5000000) && (cStatusPomiaru & SP_ROZPOCZETY)  && (cStatusPomiaru & SP_TRWA))	//timeout 5 sekund
+		  if ((nCzas > 5000000) && (cStatusPomiaru & SP_UZBROJONY)  && (cStatusPomiaru & SP_TRWA))	//timeout 5 sekund
 		  {
 			  cBłąd = ZakończPomiarTimerem();
 			  cStatusPomiaru |= SP_GOTOWY;

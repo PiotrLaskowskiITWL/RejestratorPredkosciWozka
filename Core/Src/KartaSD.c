@@ -12,7 +12,7 @@
 #include <stdio.h>
 
 uint8_t cStatusKarty = 0;
-uint8_t cLicznikPomiarow;
+uint16_t sLicznikPomiarow;
 ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
@@ -54,7 +54,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	if (cBłąd)
 	{
 		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
-		return BLAD_NIC_DO_ROBOTY;
+		return cBłąd;
 	}
 	else	//jeżeli karta jest to sprawdź czy nie została przed chwilę włożona
 	{
@@ -79,7 +79,9 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 		cStatusKarty = STATSD_MEDIA_OTWARTE;
 	}
 
-	sprintf(cBuforNapisów, "Pomiary%02d.csv", cLicznikPomiarow++);
+	sprintf(cBuforNapisów, "Pomiary%03d.csv", sLicznikPomiarow++);
+	if (sLicznikPomiarow > 999)
+		sLicznikPomiarow = 0;
 
 	//jeżeli istnieje poprzedni plik o tej samej nazwie to usuń go
 	nStatus = fx_file_delete(&sdio_disk, cBuforNapisów);
@@ -136,7 +138,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 //  cIndeksPomiaru - Indeks kolejnego pomiaru
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t ZapiszIndeksPomiaruNaKarte(uint8_t cIndeksPomiaru)
+uint8_t ZapiszIndeksPomiaruNaKarte(uint16_t sIndeksPomiaru)
 {
 	uint8_t cBłąd = BLAD_OK;
 	UINT nStatus;
@@ -170,7 +172,7 @@ uint8_t ZapiszIndeksPomiaruNaKarte(uint8_t cIndeksPomiaru)
 	if (nStatus)
 		return BLAD_OTWARCIA_KARTY;
 
-	nRozmiar = sprintf(cBuforNapisów, "%d", cIndeksPomiaru);
+	nRozmiar = sprintf(cBuforNapisów, "%d", sIndeksPomiaru);
 
 	nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 	if (nStatus)
@@ -195,7 +197,7 @@ uint8_t ZapiszIndeksPomiaruNaKarte(uint8_t cIndeksPomiaru)
 //  *cIndeksPomiaru - wskaźnika na Indeks kolejnego pomiaru
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t CzytajIndeksPomiaruZKarty(uint8_t *cIndeksPomiaru)
+uint8_t CzytajIndeksPomiaruZKarty(uint16_t *sIndeksPomiaru)
 {
 	uint8_t cBłąd = BLAD_OK;
 	UINT nStatus;
@@ -228,10 +230,10 @@ uint8_t CzytajIndeksPomiaruZKarty(uint8_t *cIndeksPomiaru)
 	if (nRozmiar)
 	{
 		sscanf(cBuforNapisów, "%d", &nRozmiar);
-		*cIndeksPomiaru = (uint8_t)nRozmiar;
+		*sIndeksPomiaru = (uint16_t)nRozmiar;
 	}
 	else
-		*cIndeksPomiaru = 0;
+		*sIndeksPomiaru = 0;
 
 	nStatus =  fx_file_close(&fx_file);
 	if (nStatus)

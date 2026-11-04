@@ -87,7 +87,7 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO	14		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO	16		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	200
 #define LICZBA_CZUJNIKOW	4
@@ -106,13 +106,13 @@ void Error_Handler(void);
 #define SZEROKOSC_OPISU_PODZIALKI	19	//3 znaki po 6 pixeli
 
 //znaczenia bitów zmiennej cStatusPomiaru
-#define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty - timer został uruchomiony i czeka na pomiar
+#define SP_UZBROJONY		0x01	//timer został uruchomiony i czeka na pomiar
 #define SP_TRWA				0x02	//pojawiły się impulsy, które rozpoczeły pomiar, bez nich nie uruchomi się timeout kończący
-#define SP_NOWY_POMIAR		0x04	//pojawił się nowy impuls, więc resetuj timeout i czyść bit przy każdym resecie. Ciągły strumień bitów wydłuża pomiar
-#define SP_GOTOWY			0x08	//wystąpił kilkusekundowy timeout po tym jak zaczęły przychodzić impulsy
+#define SP_NOWY_POMIAR		0x04	//pojawił się nowy impuls, więc resetuj timeout i czyść bit przy każdym resecie. Ciągły strumień bitów wydłuża pomiar aż do zapełnienia zmiennej
+#define SP_GOTOWY			0x08	//wystąpił timeout po tym jak zaczęły przychodzić impulsy
 #define SP_POMIAR_ROLKI1	0x10	//pojawił się nowy impuls od rolki 1
 #define SP_POMIAR_ROLKI2	0x20	//pojawił się nowy impuls od rolki 2
-#define SP_POMIAR_ROLKI3	0x30	//pojawił się nowy impuls od rolki 3
+#define SP_POMIAR_ROLKI3	0x40	//pojawił się nowy impuls od rolki 3
 #define SP_POMIAR_ROLKI4	0x80	//pojawił się nowy impuls od rolki 4
 /* USER CODE END Private defines */
 

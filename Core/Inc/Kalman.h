@@ -9,14 +9,13 @@
 #include "stm32u3xx_hal.h"
 
 
-//#define OKRES_PETLI			100	//czas obiegu pętli głównej programu [us]
 
-#define KSTAN	7	//rozmiar wektora stanu: droga, prędkość, przyspieszenie i błedy prędkości 4 rolek
+#define KSTAN	7	//rozmiar wektora stanu: droga, prędkość, przyspieszenie i błędy prędkości 4 rolek
 #define KPOM	2	//rozmiar wektora pomiaru: droga i prędkość
 
-#define WARIANCJA_ZRYWUL	5.0e-1f		//
-#define WARIANCJA_POSLIZGU 	7.0e-9f
-#define WARIANCJA_PREDKOSCI	5.0e-2f
+#define WARIANCJA_ZRYWUL	5.0e-1f		//określa jak szybko może zmieniać się pochodna przyspieszenia, czyli determinuje dynamikę modelu
+#define WARIANCJA_POSLIZGU 	7.0e-9f		//okresla jak szybko może zmieniać się poślizg rolek
+#define WARIANCJA_PREDKOSCI	5.0e-2f		//służy do pomiaru jakości pojedynczego pomiaru metodą Mahalanobisa
 
 uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float *fVRolki1, float *fVRolki2, float *fCzas1, float *fCzas2);
 uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void);
