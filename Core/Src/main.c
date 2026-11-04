@@ -65,6 +65,8 @@ UART_HandleTypeDef huart1;
 PCD_HandleTypeDef hpcd_USB_DRD_FS;
 
 /* USER CODE BEGIN PV */
+
+extern FontDef Font_6x8;
 extern FontDef Font_7x10;
 extern FontDef Font_11x18;
 extern FontDef Font_16x26;
@@ -341,7 +343,20 @@ int main(void)
 		  OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
 		  OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 
-		  //rysuj wykresy prędkości wózka ze wszystkich 4 rolek
+		  //rysuj poziomą podziałkę wykresu
+		  float fMaxPredkość = (float)OLED_WYSOKOSC / fWspSkaliY;
+		  uint8_t cMaxPredkość = (uint8_t)(ceilf(fMaxPredkość) + 1.0f);
+		  cMaxPredkość &= 0xFE;		//zamień na liczbę parzystą aby uniknąć podziału nieparzystych
+		  float fSkokPodziałki = (float)cMaxPredkość / LICZBA_PODZIALEK;
+		  for (uint8_t n=0; n<LICZBA_PODZIALEK; n++)
+		  {
+			  int16_t y = (int16_t)(fSkokPodziałki * (n+1) * fWspSkaliY);
+			  OLED_RysujLiniePoziomąPrzerywaną(SZEROKOSC_OPISU_PODZIALKI, OLED_WYSOKOSC - y, OLED_SZEROKOSC - SZEROKOSC_OPISU_PODZIALKI, 3);
+			  sprintf(cBuforNapisów, "%.1f", (n+1) * fSkokPodziałki);
+			  OLED_RysujNapis(cBuforNapisów, 0, OLED_WYSOKOSC - y - 3, &Font_6x8);
+		  }
+
+		  //rysuj wykresy prędkości wózka ze wszystkich 4 rolek jako punkty pomiarowe
 		  for (uint8_t x=0; x<cLiczbaPomiarów; x++)
 		  {
 			  cPozX = x * fWspSkaliX;
@@ -353,6 +368,18 @@ int main(void)
 			  OLED_RysujPiksel(cPozX, cPozY, 1);
 			  cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość4 * fWspSkaliY;
 			  OLED_RysujPiksel(cPozX, cPozY, 1);
+		  }
+
+		  //rysuj wykres prędkości wózka z filtra Kalmana jako linię ciągłą
+		  uint16_t sStartX, sStartY, sStopX, sStopY;
+		  sStartX = sStartY = 0;
+		  for (uint8_t x=0; x<cLiczbaPomiarów; x++)
+		  {
+			  sStopX = x * fWspSkaliX;
+			  sStopY = stPomiary[x].fKalmanPredkość * fWspSkaliY;
+			  OLED_RysujLinię(sStartX, OLED_WYSOKOSC - sStartY, sStopX, OLED_WYSOKOSC - sStopY);
+			  sStartX = sStopX;
+			  sStartY = sStopY;
 		  }
 		  OLED_OdswiezEkran();
 	  }

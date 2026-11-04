@@ -125,14 +125,14 @@ void OLED_OdswiezEkran(void){
 //  cŚwieci: 1=piksel zaświecony, 0=piksel zgaszony
 // Zwraca: nic
 ////////////////////////////////////////////////////////////////////////////////
-void OLED_RysujPiksel(uint8_t cPozX, uint8_t cPozY, uint8_t cŚwieci)
+void OLED_RysujPiksel(int16_t sPozX, int16_t sPozY, uint8_t cŚwieci)
 {
-	if(cPozX >= OLED_SZEROKOSC || cPozX < 0 || cPozY >= OLED_WYSOKOSC || cPozY < 0) return;
+	if(sPozX >= OLED_SZEROKOSC || sPozX < 0 || sPozY >= OLED_WYSOKOSC || sPozY < 0) return;
 
 	if (cŚwieci)
-		OLED_Buffor[cPozX + (cPozY / 8) * OLED_SZEROKOSC] |=   1 << (cPozY % 8);	//piksel zaświecony
+		OLED_Buffor[sPozX + (sPozY / 8) * OLED_SZEROKOSC] |=   1 << (sPozY % 8);	//piksel zaświecony
 	else
-		OLED_Buffor[cPozX + (cPozY / 8) * OLED_SZEROKOSC] &= ~(1 << (cPozY % 8));	//piksel zgaszony
+		OLED_Buffor[sPozX + (sPozY / 8) * OLED_SZEROKOSC] &= ~(1 << (sPozY % 8));	//piksel zgaszony
 }
 
 
@@ -140,15 +140,131 @@ void OLED_RysujPiksel(uint8_t cPozX, uint8_t cPozY, uint8_t cŚwieci)
 ////////////////////////////////////////////////////////////////////////////////
 // Rysuje pozioma linię
 // Parametry:
-//  cStartX, cStartY - współrzedne ekranowe początku linii w pikselach
-//  cDługość -  długość linii w pikselach
+//  sStartX, sStartY - współrzędne ekranowe początku linii w pikselach
+//  sDługość -  długość linii w pikselach
 // Zwraca: nic
 ////////////////////////////////////////////////////////////////////////////////
-void OLED_RysujLiniePoziomą(uint8_t cStartX, uint8_t cStartY, uint8_t cDługość)
+void OLED_RysujLiniePoziomą(int16_t sStartX, int16_t sStartY, int16_t sDługość)
 {
-	for (uint8_t x=0; x< cDługość; x++)
-		OLED_RysujPiksel(cStartX + x, cStartY, 1);
+	if (sDługość < 0)
+	{
+		sDługość = -sDługość;
+		sStartX -= sDługość;
+	}
+
+	for (uint16_t x=0; x< sDługość; x++)
+		OLED_RysujPiksel(sStartX + x, sStartY, 1);
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Rysuje pozioma linię przerywaną
+// Parametry:
+//  sStartX, sStartY - współrzędne ekranowe początku linii w pikselach
+//  sDługość -  długość linii w pikselach
+//  cPrzerwa - ilość pikseli przerwy między rysowanymi punktami
+// Zwraca: nic
+////////////////////////////////////////////////////////////////////////////////
+void OLED_RysujLiniePoziomąPrzerywaną(int16_t sStartX, int16_t sStartY, int16_t sDługość, uint8_t cPrzerwa)
+{
+	if (sDługość < 0)
+	{
+		sDługość = -sDługość;
+		sStartX -= sDługość;
+	}
+
+	sDługość /= cPrzerwa;
+
+	for (uint16_t x=0; x< sDługość; x++)
+		OLED_RysujPiksel(sStartX + x * cPrzerwa, sStartY, 1);
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Rysuje pionową linię
+// Parametry:
+//  sStartX, sStartY - współrzedne ekranowe początku linii w pikselach
+//  sDługość -  długość linii w pikselach
+// Zwraca: nic
+////////////////////////////////////////////////////////////////////////////////
+void OLED_RysujLiniePionową(int16_t sStartX, int16_t sStartY, int16_t sDługość)
+{
+	if (sDługość < 0)
+	{
+		sDługość = -sDługość;
+		sStartY -= sDługość;
+	}
+
+	for (int16_t y=0; y< sDługość; y++)
+		OLED_RysujPiksel(sStartX, sStartY + y, 1);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// rysuj linię o współrzędnych x1,y1, x2,y2
+// Parametry:
+//  cStartX, cStartY - współrzędne poczatku linii
+//  cStopX, cStopY - współrzędne końca linii
+// Zwraca: nic
+////////////////////////////////////////////////////////////////////////////////
+void OLED_RysujLinię(int16_t sStartX, int16_t sStartY, int16_t sStopX, int16_t sStopY)
+{
+	if (sStartY == sStopY)
+		OLED_RysujLiniePoziomą(sStartX, sStartY, sStopX - sStartX);
+	else
+	if (sStartX == sStopX)
+		OLED_RysujLiniePionową(sStartX, sStartY, sStopY - sStartY);
+	else
+	{
+		uint16_t	dx = (sStopX > sStartX ? sStopX - sStartX : sStartX - sStopX);
+		int16_t	xstep =  sStopX > sStartX ? 1 : -1;
+		uint16_t	dy = (sStopY > sStartY ? sStopY - sStartY : sStartY - sStopY);
+		int16_t	ystep =  sStopY > sStartY ? 1 : -1;
+		int16_t	col = sStartX, row = sStartY;
+
+		if (dx < dy)
+		{
+			int16_t t = - (dy >> 1);
+			while (1)
+			{
+				OLED_RysujPiksel(col, row, 1);
+				if (row == sStopY)
+					return;
+
+				row += ystep;
+				t += dx;
+				if (t >= 0)
+				{
+					col += xstep;
+					t -= dy;
+				}
+			}
+		}
+		else
+		{
+			int16_t t = - (dx >> 1);
+			while (1)
+			{
+				OLED_RysujPiksel(col, row, 1);
+				if (col == sStopX)
+					return;
+
+				col += xstep;
+				t += dy;
+				if (t >= 0)
+				{
+					row += ystep;
+					t -= dx;
+				}
+			}
+		}
+	}
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////

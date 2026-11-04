@@ -102,6 +102,8 @@ void Error_Handler(void);
 #define MASA_BSP			78.0f	//masa BSP [kg]
 #define SILA_TLOKA			(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
 #define OKRES_PETLI			100	//czas obiegu pętli głównej programu [us]
+#define LICZBA_PODZIALEK	4	//liczba podziałek dla wykresu na ekranie
+#define SZEROKOSC_OPISU_PODZIALKI	19	//3 znaki po 6 pixeli
 
 //znaczenia bitów zmiennej cStatusPomiaru
 #define SP_ROZPOCZETY		0x01	//pomiar rozpoczęty - timer został uruchomiony i czeka na pomiar

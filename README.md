@@ -10,10 +10,11 @@ Urządzenie  zapisuje dane pomiarów w postaci tekstowej, gdzie kolejne dane roz
 Dane są wysyłane telemetrią przez UART oraz podłączony do niego moduł bluetooth, oraz są zapisywane na kartę SD.
 
 ### Moduł bluetooth
-Aby zarejestrować dane, wystarczy zbliżyć się z laptopem lub telefonem, wykryć urządzenie bluetooth nazywające się "wyrzutnia". Kod parowania urządzenia to "1234". Po sparowaniu na laptopie powinien pojawić się kolejny port szeregowy COM. 
+Aby zarejestrować dane, wystarczy zbliżyć się z laptopem lub telefonem, wykryć urządzenie bluetooth nazywające się "WS-150-3I". Kod parowania urządzenia to "1234". Po sparowaniu na laptopie powinien pojawić się kolejny port szeregowy COM. 
 Trzeba uruchomić dowolny terminal, podłączyć się do portu pracującego z prędkością 115200 bps. Po upływie czasu timeoutu wynoszącego 5 sekund od wykrycia ruchu wózka rozpoczyna się wysyłanie danych na terminal.
 Jeżeli do rejestracji używany telefonu, należy zainstalować aplikację typu "bluetooth terminal". Po sparowaniu można uruchomić terminal i włączyć w nim logowanie do pliku. 
-Dla aplikacji "Serial Bluetooth Terminal" pliki logu można znaleźć w folderze android/Android/data/de.kai_mirich.serial_bluetooth_terminal. Foldr ten jest dostępny po podłączeniu telefonu kablem USB do komputera i wybraniu 
+Dla aplikacji "Serial Bluetooth Terminal" dostępnej na Google play: https://play.google.com/store/apps/details?id=de.kai_morich.serial_bluetooth_terminal&hl=pl
+ pliki logu można znaleźć w folderze android/Android/data/de.kai_mirich.serial_bluetooth_terminal. Foldr ten jest dostępny po podłączeniu telefonu kablem USB do komputera i wybraniu 
 trybu pracy "Przesyłanie plików przez USB".
 
 ### Karta SD
