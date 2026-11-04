@@ -156,11 +156,15 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //Podczas uruchomienia wyświetl logo przez sekudę
-    RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width)/2, 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
+  //Podczas uruchomienia wyświetl logo
+    RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width)/2+8, 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
+	OLED_RysujNapis("WS-150", 0, 54, &Font_7x10);
+
+	sprintf(cBuforNapisów, "v.%d", NUMER_WERSJI_REPO);
+	OLED_RysujNapis(cBuforNapisów, 100, 54, &Font_7x10);
+
     OLED_OdswiezEkran();
 	CzytajIndeksPomiaruZKarty(&cLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numeracje i nie nadpisywać swieżych pomiarów
-    HAL_Delay(1000);
     OLED_CzyśćBuforEkranu();
   while (1)
   {
@@ -387,7 +391,6 @@ int main(void)
 			  cStatusPomiaru |= SP_GOTOWY;
 		  }
 	  }
-
   }
   /* USER CODE END 3 */
 }
