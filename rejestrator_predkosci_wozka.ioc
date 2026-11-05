@@ -1,6 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_1
-ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,MonitoredBy-0\#ChannelRegularConversion,NbrOfConversionFlag,master
+ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,OffsetNumber-0\#ChannelRegularConversion,MonitoredBy-0\#ChannelRegularConversion,NbrOfConversionFlag,master,LowPowerAutoWait
+ADC1.LowPowerAutoWait=ENABLE
 ADC1.MonitoredBy-0\#ChannelRegularConversion=__NULL
 ADC1.NbrOfConversionFlag=1
 ADC1.OffsetNumber-0\#ChannelRegularConversion=ADC_OFFSET_NONE
@@ -214,7 +215,7 @@ ProjectManager.ToolChainLocation=
 ProjectManager.UAScriptAfterPath=
 ProjectManager.UAScriptBeforePath=
 ProjectManager.UnderRoot=true
-ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_ADC1_Init-ADC1-false-HAL-true,4-MX_ICACHE_Init-ICACHE-false-HAL-true,5-MX_SPI3_Init-SPI3-false-HAL-true,6-MX_TIM2_Init-TIM2-false-HAL-true,7-MX_USART1_UART_Init-USART1-false-HAL-true,8-MX_USB_PCD_Init-USB-false-HAL-true,9-MX_USBX_Init-USBX-false-HAL-false,9-MX_RNG_Init-RNG-false-HAL-true,10-MX_SDMMC1_SD_Init-SDMMC1-false-HAL-true,11-MX_FileX_Init-FILEX-false-HAL-false,12-MX_TIM7_Init-TIM7-false-HAL-true,0-MX_CORTEX_M33_NS_Init-CORTEX_M33_NS-false-HAL-true,0-MX_PWR_Init-PWR-false-HAL-true
+ProjectManager.functionlistsort=1-SystemClock_Config-RCC-false-HAL-false,2-MX_GPIO_Init-GPIO-false-HAL-true,3-MX_ADC1_Init-ADC1-false-HAL-true,4-MX_ICACHE_Init-ICACHE-false-HAL-true,5-MX_SPI3_Init-SPI3-false-HAL-true,6-MX_TIM2_Init-TIM2-false-HAL-true,7-MX_USART1_UART_Init-USART1-false-HAL-true,8-MX_USB_PCD_Init-USB-false-HAL-true,9-MX_RNG_Init-RNG-false-HAL-true,10-MX_SDMMC1_SD_Init-SDMMC1-false-HAL-true,11-MX_FileX_Init-FILEX-false-HAL-false,12-MX_TIM7_Init-TIM7-false-HAL-true,0-MX_CORTEX_M33_NS_Init-CORTEX_M33_NS-false-HAL-true,0-MX_PWR_Init-PWR-false-HAL-true
 RCC.ADCFreq_Value=3000000
 RCC.ADC_DIV=RCC_ADCDACCLK_DIV8
 RCC.ADF1Freq_Value=24000000

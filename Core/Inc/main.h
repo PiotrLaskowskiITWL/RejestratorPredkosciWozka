@@ -87,7 +87,7 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO	16		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO	17		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	200
 #define LICZBA_CZUJNIKOW	4
@@ -104,6 +104,7 @@ void Error_Handler(void);
 #define OKRES_PETLI			100	//czas obiegu pętli głównej programu [us]
 #define LICZBA_PODZIALEK	4	//liczba podziałek dla wykresu na ekranie
 #define SZEROKOSC_OPISU_PODZIALKI	19	//3 znaki po 6 pixeli
+#define LICZBA_POMIAROW_DO_ZAPISU	10	//musi być przynajmniej tyle pomiarów aby zarejestrowało dane
 
 //znaczenia bitów zmiennej cStatusPomiaru
 #define SP_UZBROJONY		0x01	//timer został uruchomiony i czeka na pomiar

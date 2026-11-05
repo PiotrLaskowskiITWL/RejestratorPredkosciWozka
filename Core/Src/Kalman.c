@@ -373,7 +373,7 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[cIndeksPomiaru[1]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
@@ -458,7 +458,7 @@ uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV3 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[cIndeksPomiaru[2]].fOdlMahalanobisaV3 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
@@ -543,7 +543,7 @@ uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV4 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[cIndeksPomiaru[3]].fOdlMahalanobisaV4 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]

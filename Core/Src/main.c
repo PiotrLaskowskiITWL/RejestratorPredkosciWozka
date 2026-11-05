@@ -85,6 +85,7 @@ uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
 float fPrędkośćMax;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 extern uint16_t sLicznikPomiarow;
+float fNapięcieAku;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -159,14 +160,22 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   //Podczas uruchomienia wyświetl logo
-    RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width)/2+8, 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
-	OLED_RysujNapis("WS-150", 0, 54, &Font_7x10);
+    RysujBitmape((OLED_SZEROKOSC - logo_ITWL_width), 0, logo_ITWL_width, logo_ITWL_height, (uint8_t*)logo_ITWL);
+    OLED_RysujNapis("WS-150-3I", 0, 0, &Font_7x10);
+    sprintf(cBuforNapisów, "ver.%d", NUMER_WERSJI_REPO);
+    OLED_RysujNapis(cBuforNapisów, 0, 12, &Font_7x10);
 
-	sprintf(cBuforNapisów, "v.%d", NUMER_WERSJI_REPO);
-	OLED_RysujNapis(cBuforNapisów, 100, 54, &Font_7x10);
+    //zmierz i wyświetl napięcie akumulatora
+    cBłąd = HAL_ADC_Start(&hadc1);
+    cBłąd = HAL_ADC_PollForConversion(&hadc1, 100);
+	uint32_t nAdcVal = HAL_ADC_GetValue(&hadc1);
+	fNapięcieAku = 3.3f * nAdcVal / 4096;
+	fNapięcieAku *= 113.0f / 13.0f;	//zewnętrzny dzielnik napięcia
+    sprintf(cBuforNapisów, "Ub=%.1fV", fNapięcieAku);
+    OLED_RysujNapis(cBuforNapisów, 0, 54, &Font_7x10);
 
     OLED_OdswiezEkran();
-	CzytajIndeksPomiaruZKarty(&sLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numeracje i nie nadpisywać swieżych pomiarów
+	CzytajIndeksPomiaruZKarty(&sLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numerację i nie nadpisywać swieżych pomiarów
     OLED_CzyśćBuforEkranu();
   while (1)
   {
@@ -387,25 +396,28 @@ int main(void)
 	  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
 	  if (cStatusPomiaru & SP_GOTOWY)
 	  {
-		  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
-		  if (cBłąd == BLAD_OK)
+		  if (stPomiary->cLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
 		  {
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
+			  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
+			  if (cBłąd == BLAD_OK)
+			  {
+				  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
+				  HAL_Delay(100);
+			  }
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+			  HAL_Delay(100);
+
+			  cBłąd = ZapiszPomiarNaKarte(stPomiary);
+			  if (cBłąd == BLAD_OK)
+			  {
+				  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
+				  HAL_Delay(100);
+				  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
+			  }
+			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
 			  HAL_Delay(100);
 		  }
-		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-		  HAL_Delay(100);
 
-
-		  cBłąd = ZapiszPomiarNaKarte(stPomiary);
-		  if (cBłąd == BLAD_OK)
-		  {
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
-			  HAL_Delay(100);
-			  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
-		  }
-		  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-		  HAL_Delay(100);
 		  cStatusPomiaru = 0;	//kasuj wszystkie flagi
 		  cLicznikOczekiwania = 0;
 	  }
@@ -524,7 +536,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.GainCompensation = 0;
   hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.LowPowerAutoWait = ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
@@ -551,7 +563,10 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN ADC1_Init 2 */
-
+  if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK)
+  {
+      Error_Handler();
+  }
   /* USER CODE END ADC1_Init 2 */
 
 }
