@@ -157,6 +157,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_4);
 				cStatusPomiaru |= SP_GOTOWY;
 			}
+
+
 		}
 
 		//dowolny pomiar resetuje timeout kończący pomiar oraz ustawia flagi nowych danych

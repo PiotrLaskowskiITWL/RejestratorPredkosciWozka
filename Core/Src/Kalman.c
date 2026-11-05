@@ -150,6 +150,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 
 	//inicjuj pierwszy pomiar i wektor stanu
 	fX[0] = (float)OBWOD_ROLKI / 1000;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
+	//fX[0] = 0.00001f;
 	fX[1] = 0.00001f;		//prędkość
 	fX[2] = 0.00001f;		//przyspieszenie
 	fX[3] = 0.00001f;		//błąd prędkości rolki 1
@@ -170,11 +171,13 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 	arm_mat_init_f32(&mR, KPOM, KPOM, &fR[0][0]);
 
 	//początkowa wariancja predykcji
-	fP[0][0] = 0.055;
-	fP[1][1] = 1.0e-2;
-	fP[2][2] = 6.0e-2;
-	fP[3][3] = 1.0e-2;
-	fP[4][4] = 1.0e-2;
+	fP[0][0] = WARIANCJA_POSLIZGU;
+	fP[1][1] = 10;
+	fP[2][2] = 100;
+	fP[3][3] = WARIANCJA_POSLIZGU;
+	fP[4][4] = WARIANCJA_POSLIZGU;
+	fP[5][5] = WARIANCJA_POSLIZGU;
+	fP[6][6] = WARIANCJA_POSLIZGU;
 	arm_mat_init_f32(&mP, KSTAN, KSTAN, &fP[0][0]);
 
 	//macierz przejścia oblicza wartość predykcji następnego stanu
@@ -266,6 +269,8 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 	fQ[2][2] = powf(fOkresPetli, 2) 	 * WARIANCJA_ZRYWUL;
 	fQ[3][3] = fOkresPetli * WARIANCJA_POSLIZGU;
 	fQ[4][4] = fOkresPetli * WARIANCJA_POSLIZGU;
+	fQ[5][5] = fOkresPetli * WARIANCJA_POSLIZGU;
+	fQ[6][6] = fOkresPetli * WARIANCJA_POSLIZGU;
 
 	//dodaj macierz szumu Q procesu do iloczynu (F * P(n)) * (F^T) -> P
 	cBłąd |= arm_mat_add_f32(&mQ, &mTempSSC, &mP);

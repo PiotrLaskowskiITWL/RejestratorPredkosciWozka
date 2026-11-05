@@ -280,7 +280,7 @@ int main(void)
 		if (stPomiary[cIndeks].nCzas3)
 		{
 			stPomiary[cIndeks].fPrędkość3 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
-			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
 			AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość3);
 			stPomiary[cIndeks].fKalmanDroga = fX[0];
 			stPomiary[cIndeks].fKalmanPredkość = fX[1];
@@ -302,7 +302,7 @@ int main(void)
 		if (stPomiary[cIndeks].nCzas4)
 		{
 			stPomiary[cIndeks].fPrędkość4 = ((float)OBWOD_ROLKI / 1000) / ((float)stPomiary[cIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
-			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+			fDroga = (cIndeks + 1) * (float)OBWOD_ROLKI / 1000;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
 			AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga, stPomiary[cIndeks].fPrędkość4);
 			stPomiary[cIndeks].fKalmanDroga = fX[0];
 			stPomiary[cIndeks].fKalmanPredkość = fX[1];
@@ -396,7 +396,7 @@ int main(void)
 	  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
 	  if (cStatusPomiaru & SP_GOTOWY)
 	  {
-		  if (stPomiary->cLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
+		  if (cLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
 		  {
 			  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
 			  if (cBłąd == BLAD_OK)
