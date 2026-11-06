@@ -73,7 +73,7 @@ static arm_matrix_instance_f32 mTempS1B  = {KSTAN, 1, fTempS1B};			//macierz Sta
 
 extern RNG_HandleTypeDef hrng;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
-extern uint8_t cIndeksPomiaru[LICZBA_CZUJNIKOW];
+extern uint8_t sIndeksPomiaru[LICZBA_CZUJNIKOW];
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -90,22 +90,21 @@ uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float 
 	float fCzasLokalny1, fCzasLokalny2;
 
 	fCzasLokalny1 = fCzasLokalny2 = 0;
-	for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
+	for (uint16_t n=0; n<LICZBA_SYMULACJI; n++)
 	{
-		fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI / 1000);
+		fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI_M);
 		cBłąd = HAL_RNG_GenerateRandomNumber(&hrng, &nRrandom32);	//losuj liczbę
 		*(fVRolki1 + n) = fPredkość + (nRrandom32 & 0xFF) / 1000.0f;
-		*(fDrogaRolki1 + n) = (n + 1) * (float)OBWOD_ROLKI / 1000;
-		fCzasLokalny1 += ((float)OBWOD_ROLKI / 1000) / *(fVRolki1 + n);
+		*(fDrogaRolki1 + n) = (n + 1) * OBWOD_ROLKI_M;
+		fCzasLokalny1 += OBWOD_ROLKI_M / *(fVRolki1 + n);
 		*(fCzas1 + n) = fCzasLokalny1;
 
 
 		cBłąd = HAL_RNG_GenerateRandomNumber(&hrng, &nRrandom32);	//losuj liczbę
 		*(fVRolki2 + n) = fPredkość + (nRrandom32 & 0xFF) / 10000.0f;
-		*(fDrogaRolki2 + n) = (n + 1) * (float)OBWOD_ROLKI / 1000;
-		fCzasLokalny2 += ((float)OBWOD_ROLKI / 1000) / *(fVRolki2 + n);
+		*(fDrogaRolki2 + n) = (n + 1) * OBWOD_ROLKI_M;
+		fCzasLokalny2 += OBWOD_ROLKI_M / *(fVRolki2 + n);
 		*(fCzas2 + n) = fCzasLokalny2;
-
 	}
 	return cBłąd;
 }
@@ -149,7 +148,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 
 
 	//inicjuj pierwszy pomiar i wektor stanu
-	fX[0] = (float)OBWOD_ROLKI / 1000;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
+	fX[0] = OBWOD_ROLKI_M;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
 	//fX[0] = 0.00001f;
 	fX[1] = 0.00001f;		//prędkość
 	fX[2] = 0.00001f;		//przyspieszenie
@@ -295,7 +294,7 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[0]].fOdlMahalanobisaV1 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[sIndeksPomiaru[0]].fOdlMahalanobisaV1 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
@@ -378,7 +377,7 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[1]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[sIndeksPomiaru[1]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
@@ -463,7 +462,7 @@ uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[2]].fOdlMahalanobisaV3 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[sIndeksPomiaru[2]].fOdlMahalanobisaV3 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
@@ -548,7 +547,7 @@ uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 	fZ[1] = fPredkość;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
-	stPomiary[cIndeksPomiaru[3]].fOdlMahalanobisaV4 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
+	stPomiary[sIndeksPomiaru[3]].fOdlMahalanobisaV4 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]

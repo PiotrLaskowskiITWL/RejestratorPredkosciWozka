@@ -16,7 +16,7 @@ uint16_t sLicznikPomiarow;
 ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / sizeof(uint32_t)]);
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
-extern uint8_t cLiczbaPomiarów;
+extern uint16_t sLiczbaPomiarów;
 FX_MEDIA        sdio_disk;
 FX_FILE         fx_file;
 
@@ -106,7 +106,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	if (nStatus)
 		return BLAD_ZAPISU_KARTY;
 
-	for (uint8_t n=0; n<cLiczbaPomiarów; n++)
+	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
 		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);

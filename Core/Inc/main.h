@@ -57,7 +57,7 @@ typedef struct
 	float fOdlMahalanobisaV2;
 	float fOdlMahalanobisaV3;
 	float fOdlMahalanobisaV4;
-	//uint8_t cLiczbaPomiarów;
+	uint8_t cPozycjaRolki;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
 } stPomiary_t;
 /* USER CODE END ET */
 
@@ -89,15 +89,15 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 #define NUMER_WERSJI_REPO	18		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
-#define ROZMIAR_BUF_POMIAROW	200
+#define ROZMIAR_BUF_POMIAROW	300
 #define LICZBA_CZUJNIKOW	4
-#define	DROGA_CALKOWITA		9500U	//długość bieżni wyrzutni [mm]
-#define	DROGA_ROZPEDZANIA	7500U	//odcinek wyrzutni na której rozpędza się BSP [mm]
-#define OBWOD_ROLKI			200U	//droga jednego obrotu rolki [mm]
+#define	DROGA_CALKOWITA		9.500f	//długość bieżni wyrzutni [m]
+#define	DROGA_ROZPEDZANIA	7.500f	//odcinek wyrzutni na której rozpędza się BSP [m]
+#define OBWOD_ROLKI_M		0.2235f	//droga jednego obrotu rolki [m]
 #define PRZYSP_STARTOWE		13.0f	//12-15 m/s^2, impuls startowy do 20 m/s^2
 #define PRZYSP_HAMOWANIA	0.0f
-#define CZUJNIKOW_NA_ROLCE	1U
-#define LICZBA_POMIAROW		(DROGA_CALKOWITA / OBWOD_ROLKI * CZUJNIKOW_NA_ROLCE)
+#define MAGNESOW_NA_ROLCE	3U
+#define LICZBA_SYMULACJI	(MAGNESOW_NA_ROLCE * (uint16_t)(DROGA_CALKOWITA / OBWOD_ROLKI_M))
 #define SKOK_X_WYKRESU		(DISP_X_SIZE / LICZBA_POMIAROW)
 #define MASA_BSP			78.0f	//masa BSP [kg]
 #define SILA_TLOKA			(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
@@ -105,6 +105,8 @@ void Error_Handler(void);
 #define LICZBA_PODZIALEK	4	//liczba podziałek dla wykresu na ekranie
 #define SZEROKOSC_OPISU_PODZIALKI	19	//3 znaki po 6 pixeli
 #define LICZBA_POMIAROW_DO_ZAPISU	10	//musi być przynajmniej tyle pomiarów aby zarejestrowało dane
+#define MAX_PREDKOSC		100	//teoretyczna maksymalna prędkość [m/s] z jaką możemy wyobrazić sobie pracę
+#define MIN_CZAS			(1000000 * OBWOD_ROLKI_M / (MAX_PREDKOSC * MAGNESOW_NA_ROLCE))	//minimalny czas jaki mozna zarejestrować [us]
 
 //znaczenia bitów zmiennej cStatusPomiaru
 #define SP_UZBROJONY		0x01	//timer został uruchomiony i czeka na pomiar

@@ -13,7 +13,7 @@
 #define KSTAN	7	//rozmiar wektora stanu: droga, prędkość, przyspieszenie i błędy prędkości 4 rolek
 #define KPOM	2	//rozmiar wektora pomiaru: droga i prędkość
 
-#define WARIANCJA_ZRYWUL	568.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
+#define WARIANCJA_ZRYWUL	800.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
 #define WARIANCJA_POSLIZGU 	0.12f		//okresla jak szybko może zmieniać się poślizg (zmiana drogi) rolek
 #define WARIANCJA_PREDKOSCI	2.5f		//służy do pomiaru jakości pojedynczego pomiaru metodą Mahalanobisa
 
