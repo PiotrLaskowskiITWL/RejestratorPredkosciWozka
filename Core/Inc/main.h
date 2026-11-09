@@ -57,7 +57,9 @@ typedef struct
 	float fOdlMahalanobisaV2;
 	float fOdlMahalanobisaV3;
 	float fOdlMahalanobisaV4;
-	uint8_t cPozycjaRolki;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
+	int8_t cBieżącaPozycjaRolki2;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
+	int8_t cSkorygowanaPozycjaRolki2;	//pozycja dopasowana do pomiarów
+	int8_t cKierunekObrotów2;			//kierunek 0..1
 } stPomiary_t;
 /* USER CODE END ET */
 

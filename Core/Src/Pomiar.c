@@ -63,6 +63,7 @@ uint8_t RozpocznijPomiarTimerem(void)
 		stPomiary[n].fBłądDrogi2 = 0.0f;
 		stPomiary[n].fBłądDrogi3 = 0.0f;
 		stPomiary[n].fBłądDrogi4 = 0.0f;
+		stPomiary[n].cKierunekObrotów2 = 1;	//domyslny kierunek obrotów
 	}
 
 	for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)

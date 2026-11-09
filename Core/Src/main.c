@@ -86,6 +86,9 @@ float fPrędkośćMax;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 extern uint16_t sLicznikPomiarow;
 float fNapięcieAku;
+int8_t cPozycjaRolki[LICZBA_CZUJNIKOW];		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
+int8_t cKierunekObrotów[LICZBA_CZUJNIKOW];	//okesla kierunek obrotów: 1
+GPIO_PinState cStanWejścia;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -188,6 +191,9 @@ int main(void)
 	  float fDroga = 0.0f;
 	  uint16_t sIndeks;
 
+	  cStanWejścia = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);	//czujnik 2 to PA1
+	  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, !cStanWejścia);
+
 	  /*/symuluj strzał z wyrzutni aby wygenerować czasy obrotu 4 rolek
 	  for (uint16_t n=0; n<LICZBA_POMIAROW; n++)
 	  {
@@ -253,17 +259,92 @@ int main(void)
 	{
 		cStatusPomiaru &= ~SP_POMIAR_ROLKI2;
 		sIndeks = sIndeksPomiaru[1] - 1;
+
 		if (stPomiary[sIndeks].nCzas2 > MIN_CZAS)
 		{
-			//w przypadku 3 magnesów ułożonych co 90° mierzone są 2 odcinki podowiadające 1/4 obwodu i 1 odcinek odpowiadający 1/2 obwodu.
-			//Kolejność pojawienia się odcinka dłuższego (cPozycjaRolki == 0) jest losowa ale musi wystapić w przeciagu 3 kolejnych próbek
-			if (stPomiary[sIndeks].cPozycjaRolki == 0)
+			//w przypadku 3 magnesów ułożonych co 90° mierzone sąL 0=odcinek odpowiadający 1/2 obwodu, 1..2 odcinki podowiadające 1/4 obwodu.
+			if (cPozycjaRolki[1] == 0)
 				stPomiary[sIndeks].fPrędkość2 = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na odcinku dłuższym
 			else
 				stPomiary[sIndeks].fPrędkość2 = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na odcinku krótszym
-			stPomiary[sIndeks].cPozycjaRolki++;
-			if (stPomiary[sIndeks].cPozycjaRolki > 2)
-				stPomiary[sIndeks].cPozycjaRolki = 0;
+
+			stPomiary[sIndeks].cBieżącaPozycjaRolki2 = cPozycjaRolki[1];	//zapamiętaj pozycje w logu
+
+			//Jeżeli mamy przynajmniej 3 obroty można  rozpocząć synchronizację położenia dłuższego odcinka obwodu rolki do pomiaru
+			if (sIndeks >= 2)
+			{
+				float fWariantyPrędkości[3][3];	//wszystkie 3 możliwe rozkłady prędkości
+
+				//wariant 1: 1/2, 1/4, 1/4
+				fWariantyPrędkości[0][0] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 2].nCzas2 / 1000000);
+				fWariantyPrędkości[0][1] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 1].nCzas2 / 1000000);
+				fWariantyPrędkości[0][2] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 0].nCzas2 / 1000000);
+
+				//wariant 1: 1/4, 1/2, 1/4
+				fWariantyPrędkości[1][0] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 2].nCzas2 / 1000000);
+				fWariantyPrędkości[1][1] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 1].nCzas2 / 1000000);
+				fWariantyPrędkości[1][2] = fWariantyPrędkości[0][2];	//wykorzystaj to co było już policzone
+
+				//wariant 1: 1/4, 1/4, 1/2
+				fWariantyPrędkości[2][0] = fWariantyPrędkości[1][0];
+				fWariantyPrędkości[2][1] = fWariantyPrędkości[0][1];
+				fWariantyPrędkości[2][2] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 0].nCzas2 / 1000000);
+
+				//Metodą najmniejszych kwadratów oblicz dopasowanie pomiaru do jednego z wariantów
+				float fOdchylenie[3];
+				for (uint8_t w=0; w<3; w++)		//pętla po wariantach
+				{
+					fOdchylenie[w] = 0;
+					for (uint8_t n=0; n<3; n++)		//pętla po pomiarach
+					{
+						fOdchylenie[w] += powf(stPomiary[sIndeks - n].fPrędkość2 - fWariantyPrędkości[w][n], 2);	//sumuj kwadrat różnicy
+					}
+				}
+
+				//sprawdź który wariant ma najmniejsze odchylenie od pomiaru
+				//if (cKierunekObrotów[1])	//kierunek normalny do przodu
+				{
+					if ((fOdchylenie[0] < fOdchylenie[1]) && (fOdchylenie[0] < fOdchylenie[2]))
+						cPozycjaRolki[1] = 2;
+					else
+					if ((fOdchylenie[1] < fOdchylenie[0]) && (fOdchylenie[1] < fOdchylenie[2]))
+						cPozycjaRolki[1] = 1;
+					else
+					if ((fOdchylenie[2] < fOdchylenie[0]) && (fOdchylenie[2] < fOdchylenie[1]))
+						cPozycjaRolki[1] = 0;
+				}
+				/*else	//ruch wstecz
+				{
+					if ((fOdchylenie[0] < fOdchylenie[1]) && (fOdchylenie[0] < fOdchylenie[2]))
+						cPozycjaRolki[1] = 0;
+					else
+					if ((fOdchylenie[1] < fOdchylenie[0]) && (fOdchylenie[1] < fOdchylenie[2]))
+						cPozycjaRolki[1] = 1;
+					else
+					if ((fOdchylenie[2] < fOdchylenie[0]) && (fOdchylenie[2] < fOdchylenie[1]))
+						cPozycjaRolki[1] = 2;
+				}*/
+				stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = cPozycjaRolki[1];
+			}
+
+			//zmiana synchronizacji to prawdopodobna zmiana kierunku ale potrzeba co najmniej dwóch skorygowanych pozycji aby dobrze okreslić kierunek
+			if (sIndeks >= 3)
+				cKierunekObrotów[1] = (stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 == stPomiary[sIndeks].cBieżącaPozycjaRolki2);
+			stPomiary[sIndeks].cKierunekObrotów2 = cKierunekObrotów[1];
+
+			//kolejna pozycja rolki zależy od kierunku obrotów
+			if (cKierunekObrotów[1])
+			{
+				cPozycjaRolki[1]++;
+				if (cPozycjaRolki[1] > 2)
+					cPozycjaRolki[1] = 0;
+			}
+			else
+			{
+				cPozycjaRolki[1]--;
+				if (cPozycjaRolki[1] < 0)
+					cPozycjaRolki[1] = 2;
+			}
 
 
 			fDroga = (sIndeks + 1) * OBWOD_ROLKI_M;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
@@ -278,14 +359,7 @@ int main(void)
 				fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
 		}
 
-		//mamy pierwszy pełen obrót rolki więc synchronizuj położenie dłuższego odcinka
-		if (sIndeks == 2)
-		{
-			float fWariantyPrędkości[3];	//wszystkie 3 możliwe rozkłady prędkości
 
-			uint32_t nCzasObrotu = stPomiary[0].nCzas2 + stPomiary[1].nCzas2 + stPomiary[2].nCzas2;
-			fWariantyPrędkości[0] = OBWOD_ROLKI_M / (nCzasObrotu / 1000000);
-		}
 	}
 
 	if (cStatusPomiaru & SP_POMIAR_ROLKI3)
@@ -412,21 +486,21 @@ int main(void)
 			  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
 			  if (cBłąd == BLAD_OK)
 			  {
-				  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
-				  HAL_Delay(100);
+				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
+				  //HAL_Delay(100);
 			  }
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-			  HAL_Delay(100);
+			  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+			  //HAL_Delay(100);
 
 			  cBłąd = ZapiszPomiarNaKarte(stPomiary);
 			  if (cBłąd == BLAD_OK)
 			  {
-				  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
-				  HAL_Delay(100);
+				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
+				  //HAL_Delay(100);
 				  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
 			  }
-			  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-			  HAL_Delay(100);
+			  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+			  //HAL_Delay(100);
 		  }
 
 		  cStatusPomiaru = 0;	//kasuj wszystkie flagi
