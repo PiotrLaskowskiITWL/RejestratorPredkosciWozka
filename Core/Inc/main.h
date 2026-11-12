@@ -90,7 +90,7 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO	21		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO	22		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	300
 #define LICZBA_CZUJNIKOW	4
