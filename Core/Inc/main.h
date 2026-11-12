@@ -60,6 +60,7 @@ typedef struct
 	int8_t cBieżącaPozycjaRolki2;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
 	int8_t cSkorygowanaPozycjaRolki2;	//pozycja dopasowana do pomiarów
 	int8_t cKierunekObrotów2;			//kierunek 0..1
+	float fOdchylenie[3];		//wartości kwadratu odchylenia od estymaty dla 3 wariantów położenia
 } stPomiary_t;
 /* USER CODE END ET */
 
@@ -89,7 +90,7 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO	18		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO	21		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	300
 #define LICZBA_CZUJNIKOW	4

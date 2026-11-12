@@ -73,7 +73,7 @@ static arm_matrix_instance_f32 mTempS1B  = {KSTAN, 1, fTempS1B};			//macierz Sta
 
 extern RNG_HandleTypeDef hrng;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
-extern uint8_t sIndeksPomiaru[LICZBA_CZUJNIKOW];
+extern uint16_t sIndeksPomiaru[LICZBA_CZUJNIKOW];
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -234,6 +234,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 // P(n+1) = F * P(n) * F^T + Q
 // Parametry: fDeltaCzasu - czas w sekundach od ostatniego pomiaru
 // Zwraca: kod błędu
+// Czas wykonania: 558 us na 24 MHz, 145 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 {
@@ -368,6 +369,7 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
+// Czas wykonania: 748 us na 24 MHz, 190 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
 {
@@ -378,7 +380,6 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
 	stPomiary[sIndeksPomiaru[1]].fOdlMahalanobisaV2 = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
-
 
 	//liczę współczynnik wzmocnienia Kalmana: mK,
 	//najpierw transponowane H -> mTempSPc	 [Pomiar x Stan] -> [Stan x Pomiar]
