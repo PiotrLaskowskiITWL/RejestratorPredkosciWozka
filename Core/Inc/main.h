@@ -57,9 +57,12 @@ typedef struct
 	float fOdlMahalanobisaV2;
 	float fOdlMahalanobisaV3;
 	float fOdlMahalanobisaV4;
-	int8_t cBieżącaPozycjaRolki2;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
-	int8_t cSkorygowanaPozycjaRolki2;	//pozycja dopasowana do pomiarów
-	int8_t cKierunekObrotów2;			//kierunek 0..1
+	//int8_t cBieżącaPozycjaRolki2;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
+	//int8_t cSkorygowanaPozycjaRolki2;	//pozycja dopasowana do pomiarów
+	uint8_t cStanBieżący12;
+	uint8_t cStanPoprzedni12;
+	int8_t cKierunekObrotów12;			//kierunek -1..1 pary czujników 1 i 2
+	int8_t cKierunekObrotów34;			//kierunek -1..1 pary czujników 3 i 4
 	float fOdchylenie[3];		//wartości kwadratu odchylenia od estymaty dla 3 wariantów położenia
 } stPomiary_t;
 /* USER CODE END ET */
@@ -90,16 +93,16 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO	22		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO	23		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
-#define ROZMIAR_BUF_POMIAROW	300
-#define LICZBA_CZUJNIKOW	4
+#define ROZMIAR_BUF_POMIAROW	500
+#define LICZBA_CZUJNIKOW	4		//liczba wejść czujnikiów
 #define	DROGA_CALKOWITA		9.500f	//długość bieżni wyrzutni [m]
 #define	DROGA_ROZPEDZANIA	7.500f	//odcinek wyrzutni na której rozpędza się BSP [m]
 #define OBWOD_ROLKI_M		0.2235f	//droga jednego obrotu rolki [m]
 #define PRZYSP_STARTOWE		13.0f	//12-15 m/s^2, impuls startowy do 20 m/s^2
 #define PRZYSP_HAMOWANIA	0.0f
-#define MAGNESOW_NA_ROLCE	3U
+#define MAGNESOW_NA_ROLCE	6U
 #define LICZBA_SYMULACJI	(MAGNESOW_NA_ROLCE * (uint16_t)(DROGA_CALKOWITA / OBWOD_ROLKI_M))
 #define SKOK_X_WYKRESU		(DISP_X_SIZE / LICZBA_POMIAROW)
 #define MASA_BSP			78.0f	//masa BSP [kg]

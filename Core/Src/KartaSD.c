@@ -108,7 +108,8 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 
 	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
-		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
+		//nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
+		nRozmiar = FormatujDaneKierunku(cBuforNapisów, n+1, stPomiary + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 		if (nStatus)
 			return BLAD_ZAPISU_KARTY;
@@ -310,6 +311,44 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 					stPomiary->fOdchylenie[0], stPomiary->fOdchylenie[1], stPomiary->fOdchylenie[2],
 					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4);*/
 
+	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
+	do
+	{
+		cZnak = strchr(cBufor, '.');
+		if (cZnak)
+			*cZnak = ',';
+	}
+	while (cZnak);
+
+	return nRozmiar;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja tworzy ciąg znaków będący wpisem do logu
+// Parametry:
+//  *cBufor wskaźnik na bufor danych
+//  cIndeks - numer pomiaru
+//  *stPomiary - wskaźnik na tablicę struktur danych pomiarowych
+// Zwraca: ilość znaków nagłówka
+////////////////////////////////////////////////////////////////////////////////
+int FormatujDaneKierunku(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
+{
+	char *cZnak;
+	int nRozmiar;
+
+	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
+		*(cBufor + n) = 0;
+
+	//					        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     stan pst   kier
+	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %d\t %d\t %d\r\n", cIndeks,
+					stPomiary->nCzas1, stPomiary->fPrędkość1,
+					stPomiary->nCzas2, stPomiary->fPrędkość2,
+					stPomiary->nCzas3, stPomiary->fPrędkość3,
+					stPomiary->nCzas4, stPomiary->fPrędkość4,
+					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
+					stPomiary->cStanBieżący12, stPomiary->cStanPoprzedni12, stPomiary->cKierunekObrotów12);
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do
 	{
