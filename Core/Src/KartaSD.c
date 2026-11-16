@@ -109,7 +109,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
 		//nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
-		nRozmiar = FormatujDaneKierunku(cBuforNapisów, n+1, stPomiary + n);
+		nRozmiar = FormatujDaneKierunku(cBuforNapisów, n+1, stPomiary1 + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 		if (nStatus)
 			return BLAD_ZAPISU_KARTY;
@@ -286,12 +286,13 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 	//wersja dla symetryczne rozłozonych magnesów
 	//						        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     pos1   pos2   pos3   pos4    m1    m2     m3     m4
 		nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.2f\t %.2f\t %.2f\t %.2f\r\n", cIndeks,
-					stPomiary->nCzas1, stPomiary->fPrędkość1,
-					stPomiary->nCzas2, stPomiary->fPrędkość2,
-					stPomiary->nCzas3, stPomiary->fPrędkość3,
-					stPomiary->nCzas4, stPomiary->fPrędkość4,
-					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4,
-					stPomiary->fOdlMahalanobisaV1, stPomiary->fOdlMahalanobisaV2, stPomiary->fOdlMahalanobisaV3, stPomiary->fOdlMahalanobisaV4);
+					stPomiary1->nCzasA, stPomiary1->fPrędkość,
+					stPomiary1->nCzasB, stPomiary1->fPrędkość,
+					stPomiary2->nCzasA, stPomiary2->fPrędkość,
+					stPomiary2->nCzasB, stPomiary2->fPrędkość,
+					stPomiary1->fKalmanDroga, stPomiary1->fKalmanPredkość, stPomiary1->fKalmanPrzyspieszenie, stPomiary1->fBłądDrogi,
+					stPomiary2->fKalmanDroga, stPomiary2->fKalmanPredkość, stPomiary2->fKalmanPrzyspieszenie, stPomiary2->fBłądDrogi,
+					stPomiary1->fOdlMahalanobisaV1, stPomiary1->fOdlMahalanobisaV2);
 
 
 /*/						        Nr   t1    v1      t2    v2     pb2  bk2  k2   t3    v3     t4    v4     kl     kv      ka      pos1 pos2   pos3   pos4    m1    m2     m3     m4
@@ -324,39 +325,3 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 }
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-// Funkcja tworzy ciąg znaków będący wpisem do logu
-// Parametry:
-//  *cBufor wskaźnik na bufor danych
-//  cIndeks - numer pomiaru
-//  *stPomiary - wskaźnik na tablicę struktur danych pomiarowych
-// Zwraca: ilość znaków nagłówka
-////////////////////////////////////////////////////////////////////////////////
-int FormatujDaneKierunku(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
-{
-	char *cZnak;
-	int nRozmiar;
-
-	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
-		*(cBufor + n) = 0;
-
-	//					        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     popr stan kier
-	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %d\t %d\t %d\r\n", cIndeks,
-					stPomiary->nCzas1, stPomiary->fPrędkość1,
-					stPomiary->nCzas2, stPomiary->fPrędkość2,
-					stPomiary->nCzas3, stPomiary->fPrędkość3,
-					stPomiary->nCzas4, stPomiary->fPrędkość4,
-					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
-					stPomiary->cStanPoprzedni12, stPomiary->cStanBieżący12, stPomiary->cKierunekObrotów12);
-	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
-	do
-	{
-		cZnak = strchr(cBufor, '.');
-		if (cZnak)
-			*cZnak = ',';
-	}
-	while (cZnak);
-
-	return nRozmiar;
-}

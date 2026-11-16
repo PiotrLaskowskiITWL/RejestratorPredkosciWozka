@@ -38,32 +38,14 @@ extern "C" {
 /* USER CODE BEGIN ET */
 typedef struct
 {
-	uint32_t nCzas1;	//zmierzony czas obrotu rolki 1 [us]
-	uint32_t nCzas2;
-	uint32_t nCzas3;
-	uint32_t nCzas4;
-	float fPrędkość1;	//prędkość obliczona dla obrotu rolki 1 [m/s]
-	float fPrędkość2;
-	float fPrędkość3;
-	float fPrędkość4;
+	uint32_t nCzas[LICZBA_CZUJNIKOW];				//czas między impulsem wejścia A i B
+	float fPrędkość[LICZBA_CZUJNIKOW];			//prędkość obliczona dla obrotu rolki 1 [m/s]
 	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
 	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]
 	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]
-	float fBłądDrogi1;			//poślizg rolki 1 względem estymowanej drogi [m]
-	float fBłądDrogi2;
-	float fBłądDrogi3;
-	float fBłądDrogi4;
-	float fOdlMahalanobisaV1;	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
-	float fOdlMahalanobisaV2;
-	float fOdlMahalanobisaV3;
-	float fOdlMahalanobisaV4;
-	//int8_t cBieżącaPozycjaRolki2;		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
-	//int8_t cSkorygowanaPozycjaRolki2;	//pozycja dopasowana do pomiarów
-	uint8_t cStanBieżący12;
-	uint8_t cStanPoprzedni12;
-	int8_t cKierunekObrotów12;			//kierunek -1..1 pary czujników 1 i 2
-	int8_t cKierunekObrotów34;			//kierunek -1..1 pary czujników 3 i 4
-	float fOdchylenie[3];		//wartości kwadratu odchylenia od estymaty dla 3 wariantów położenia
+	float fBłądDrogi[LICZBA_CZUJNIKOW];			//poślizg rolki 1 względem estymowanej drogi [m]
+	float fOdlMahalanobisaV[LICZBA_CZUJNIKOW];	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
+	int8_t cKierunekObrotów;			//kierunek -1..1 pary czujników 1 i 2
 } stPomiary_t;
 /* USER CODE END ET */
 
@@ -97,6 +79,7 @@ void Error_Handler(void);
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	500
 #define LICZBA_CZUJNIKOW		4		//liczba wejść czujnikiów
+#define LICZBA_KANALOW			2		//liczba kanałów pomiarowych. Każdy kanał składa się z 2 czujników
 #define	DROGA_CALKOWITA			9.500f	//długość bieżni wyrzutni [m]
 #define	DROGA_ROZPEDZANIA		7.500f	//odcinek wyrzutni na której rozpędza się BSP [m]
 #define OBWOD_ROLKI_M			0.2235f	//droga jednego obrotu rolki [m]

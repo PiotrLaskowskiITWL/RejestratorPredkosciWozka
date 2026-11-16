@@ -76,10 +76,12 @@ extern const int logo_ITWL_width;
 extern const int logo_ITWL_height;
 char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
+//stPomiary_t stPomiary2[ROZMIAR_BUF_POMIAROW];
 uint8_t cBłąd;
 uint16_t sLiczbaPomiarów;
 extern uint8_t cStatusPomiaru;
-extern uint16_t sIndeksPomiaru[LICZBA_CZUJNIKOW];
+extern uint16_t sIndeksPomiaru1;
+extern uint16_t sIndeksPomiaru2;
 uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
@@ -91,6 +93,8 @@ float fDroga[LICZBA_CZUJNIKOW] = {0.0f};
 GPIO_PinState cStanWejścia;
 uint16_t sIndeks = 0;
 extern stEnkoder_t stEnkoder;
+extern uint32_t nBieżącyZegar[LICZBA_CZUJNIKOW];
+extern uint32_t nPoprzedniZegar[LICZBA_CZUJNIKOW];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -238,63 +242,66 @@ int main(void)
     	if (cStatusPomiaru & SP_POMIAR_ROLKI1)
     	{
     		cStatusPomiaru &= ~SP_POMIAR_ROLKI1;
-    		sIndeks = sIndeksPomiaru[0] - 1;	//sIndeksPomiaru[] jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar
-    		//SprawdźKierunekCzujników(0, &stEnkoder);
-    		//stEnkoder.cPoprzedniStanEnkodera[0] = stEnkoder.cStanEnkodera[0];
-    		//stEnkoder.cStanEnkodera[0] = 1;
-    		stPomiary[sIndeks].cKierunekObrotów12 = stEnkoder.cKierunek[0];
-    		stPomiary[sIndeks].cStanPoprzedni12  = stEnkoder.cPoprzedniStanEnkodera[0];
-    		stPomiary[sIndeks].cStanBieżący12 = stEnkoder.cStanEnkodera[0];
-
-    		if (stPomiary[sIndeks].nCzas1 > MIN_CZAS)
+    		if (sIndeksPomiaru1 > 1)	//muszą być przechwycone co najmniej 2 impulsy
     		{
-    			stPomiary[sIndeks].fPrędkość1 = (float)stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas1 / 1000000);	//średnia prędkość na bieżącym odcinku
-    			fDroga[0] += (float)stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 1
-    			AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(fDroga[0], stPomiary[sIndeks].fPrędkość1);
+				sIndeks = sIndeksPomiaru1 - 1;	//sIndeksPomiaru[] jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar
+				stPomiary[sIndeks].nCzas[0] = MinalCzas2(nPoprzedniZegar[0], nBieżącyZegar[0]);
+				if (nBieżącyZegar[0] > nBieżącyZegar[1])
+					stPomiary[sIndeks].cKierunekObrotów = 1;
+				else
+					stPomiary[sIndeks].cKierunekObrotów = -1;
 
-    			//znajdź maksymalną prędkość
-    			if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
-    				fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
+
+				stPomiary[sIndeks].fPrędkość[0] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas[0] / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[0] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 1
+				AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0]);
+
+				//znajdź maksymalną prędkość
+				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
+					fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
+
     		}
     	}
 
     	if (cStatusPomiaru & SP_POMIAR_ROLKI2)
     	{
     		cStatusPomiaru &= ~SP_POMIAR_ROLKI2;
-    		sIndeks = sIndeksPomiaru[1] - 1;
-    		//SprawdźKierunekCzujników(1, &stEnkoder);
-    		//stEnkoder.cPoprzedniStanEnkodera[0] = stEnkoder.cStanEnkodera[0];
-    		//stEnkoder.cStanEnkodera[0] = 2;
-    		stPomiary[sIndeks].cKierunekObrotów12 = stEnkoder.cKierunek[0];
-    		stPomiary[sIndeks].cStanPoprzedni12  = stEnkoder.cPoprzedniStanEnkodera[0];
-    		stPomiary[sIndeks].cStanBieżący12 = stEnkoder.cStanEnkodera[0];
-
-    		if (stPomiary[sIndeks].nCzas2 > MIN_CZAS)
+    		if (sIndeksPomiaru1 > 1)	//muszą być przechwycone co najmniej 2 impulsy
     		{
-				stPomiary[sIndeks].fPrędkość2 = stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na bieżącym odcinku
-				fDroga[1] += stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+				sIndeks = sIndeksPomiaru1 - 1;
+				stPomiary[sIndeks].nCzas[1] = MinalCzas2(nPoprzedniZegar[1], nBieżącyZegar[1]);
+				if (nBieżącyZegar[1] > nBieżącyZegar[0])
+					stPomiary[sIndeks].cKierunekObrotów = 1;
+				else
+					stPomiary[sIndeks].cKierunekObrotów = -1;
+
+				stPomiary[sIndeks].fPrędkość[1] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas[1] / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[1] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
 				//nCzas = PobierzCzasT7();	//start testowego pomiaru czasu
-				AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość2);
+				AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1]);
 				//nCzas = MinalCzas(nCzas);	//odczyt testowego pomiaru czasu
 
 				//znajdź maksymalną prędkość
 				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
 					fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
-			}
+    		}
 		}
 
 		if (cStatusPomiaru & SP_POMIAR_ROLKI3)
 		{
 			cStatusPomiaru &= ~SP_POMIAR_ROLKI3;
-			sIndeks = sIndeksPomiaru[2] - 1;
-			//SprawdźKierunekCzujników(2, &stEnkoder);
-			stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
-
-			if (stPomiary[sIndeks].nCzas3 > MIN_CZAS)
+			if (sIndeksPomiaru1 > 1)	//muszą być przechwycone co najmniej 2 impulsy
 			{
-				stPomiary[sIndeks].fPrędkość3 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
-				fDroga[2] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
-				AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość3);
+				sIndeks = sIndeksPomiaru2 - 1;
+				stPomiary[sIndeks].nCzas[2] = MinalCzas2(nPoprzedniZegar[2], nBieżącyZegar[2]);
+				if (nBieżącyZegar[2] > nBieżącyZegar[3])
+					stPomiary[sIndeks].cKierunekObrotów = 1;
+				else
+					stPomiary[sIndeks].cKierunekObrotów = -1;
+
+				stPomiary[sIndeks].fPrędkość[2] = (float)stPomiary[sIndeks].cKierunekObrotów  * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas[2] / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[2] += (float)stPomiary[sIndeks].cKierunekObrotów  * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
+				AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2]);
 
 				//znajdź maksymalną prędkość
 				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
@@ -305,15 +312,19 @@ int main(void)
 		if (cStatusPomiaru & SP_POMIAR_ROLKI4)
 		{
 			cStatusPomiaru &= ~SP_POMIAR_ROLKI4;
-			sIndeks = sIndeksPomiaru[3] - 1;
-			//SprawdźKierunekCzujników(3, &stEnkoder);
-			stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
-
-			if (stPomiary[sIndeks].nCzas4 > MIN_CZAS)
+			if (sIndeksPomiaru1 > 1)	//muszą być przechwycone co najmniej 2 impulsy
 			{
-				stPomiary[sIndeks].fPrędkość4 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
-				fDroga[3] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
-				AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość4);
+				sIndeks = sIndeksPomiaru2 - 1;
+				stPomiary[sIndeks].nCzas[3] = MinalCzas2(nPoprzedniZegar[3], nBieżącyZegar[3]);
+				if (nBieżącyZegar[3] > nBieżącyZegar[2])
+					stPomiary[sIndeks].cKierunekObrotów = 1;
+				else
+					stPomiary[sIndeks].cKierunekObrotów = -1;
+
+
+				stPomiary[sIndeks].fPrędkość[3] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas[3] / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[3] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
+				AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3]);
 
 				//znajdź maksymalną prędkość
 				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)

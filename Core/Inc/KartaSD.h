@@ -24,6 +24,5 @@ uint8_t CzytajIndeksPomiaruZKarty(uint16_t *sIndeksPomiaru);
 uint8_t ZapiszIndeksPomiaruNaKarte(uint16_t sIndeksPomiaru);
 int FormatujNagłówekDanych(char *cBufor);
 int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary);
-int FormatujDaneKierunku(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary);
 
 #endif /* INC_KARTASD_H_ */
