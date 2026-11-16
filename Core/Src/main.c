@@ -87,14 +87,7 @@ float fPrędkośćMax;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 extern uint16_t sLicznikPomiarow;
 float fNapięcieAku;
-//int8_t cPozycjaRolki[LICZBA_CZUJNIKOW];		//określa bieżące położenie rolki: 0=impuls nastąpił po połowie obwodu, 1, 2 - impuls wystąpił po ćwiartce obwodu
-//int8_t cKierunekObrotów[LICZBA_CZUJNIKOW];	//okresla kierunek obrotów: 1
 float fDroga[LICZBA_CZUJNIKOW] = {0.0f};
-//uint8_t cStanCzujnika[2] = {0,1}; 				//każdy czujnik odpowiada za automatu stanu. Czujniki 0 i 2 zmieniają stan między 0 i 3, czujniki 1 i 3 między 1 i 2
-//uint8_t cStanEnkodera[2];						//stany 0..3 obu enkoderów. Bit 0 i 1 enkodera 1 pochodzą z wejść 1 i 2, bity enkodera 2 pochodza z wejść 3 i 4
-//uint8_t cPoprzedniStanEnkodera[2] = {0,0};		//poprzedni stan enkoderów potrzebny do określenia kierunku obrotu
-//uint8_t cPoprzedniImpuls12, cPoprzedniImpuls34;	//zmienna do wykrywania zmian kierunku w trakcie pracy. Dwa impulsy na tym samym czujniku oznacza zmianę kierunku
-//int8_t cKierunek12, cKierunek34;				//kierunek obrotów określony parą czujników 1,2 i parą 3,4
 GPIO_PinState cStanWejścia;
 uint16_t sIndeks = 0;
 extern stEnkoder_t stEnkoder;
@@ -167,6 +160,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   OLED_Init();
   InicjujPomiarTimerem();
+  InicjujEnkoder();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -219,8 +213,13 @@ int main(void)
     		cStatusPomiaru |= SP_UZBROJONY;
     		sLiczbaPomiarów = 0;
     		fPrędkośćMax = 0.0f;
-    		for (uint8_t n=0; n<4; n++)
+    		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
+    		{
     			fDroga[n] = 0.0f;
+    		}
+    		stEnkoder.cKierunek[0] = 1;	//zakładamy że nowy ruch jest zawsze do przodu
+    		stEnkoder.cKierunek[1] = 1;
+    		stEnkoder.cOstatnioAktywnyCzujnik = 0xFF;	//brak definicji ostatniego czujnika
     	}
 
     	nCzas = PobierzCzasT7();
@@ -240,20 +239,12 @@ int main(void)
     	{
     		cStatusPomiaru &= ~SP_POMIAR_ROLKI1;
     		sIndeks = sIndeksPomiaru[0] - 1;	//sIndeksPomiaru[] jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar
-    		/*/czujnik 1 zmienia stan enkodera między wartością 0 i 3
-    		if (cStanCzujnika[0] == 0)
-    			cStanCzujnika[0] = 3;
-    		else
-    		if (cStanCzujnika[0] == 3)
-    			cStanCzujnika[0] = 0;
-    		cStanEnkodera[0] = cStanCzujnika[0];
-			stPomiary[sIndeks].cStanBieżący12 = cStanEnkodera[0];
-			stPomiary[sIndeks].cStanPoprzedni12 = cPoprzedniStanEnkodera[0];
-			cKierunek12 = SprawdźKierunek(cStanEnkodera[0], &cPoprzedniStanEnkodera[0]);	//określ kierunek obrotów
-			stPomiary[sIndeks].cKierunekObrotów12 = cKierunek12;*/
-
-    		SprawdźKierunekCzujników(0, &stEnkoder);
+    		//SprawdźKierunekCzujników(0, &stEnkoder);
+    		//stEnkoder.cPoprzedniStanEnkodera[0] = stEnkoder.cStanEnkodera[0];
+    		//stEnkoder.cStanEnkodera[0] = 1;
     		stPomiary[sIndeks].cKierunekObrotów12 = stEnkoder.cKierunek[0];
+    		stPomiary[sIndeks].cStanPoprzedni12  = stEnkoder.cPoprzedniStanEnkodera[0];
+    		stPomiary[sIndeks].cStanBieżący12 = stEnkoder.cStanEnkodera[0];
 
     		if (stPomiary[sIndeks].nCzas1 > MIN_CZAS)
     		{
@@ -271,308 +262,205 @@ int main(void)
     	{
     		cStatusPomiaru &= ~SP_POMIAR_ROLKI2;
     		sIndeks = sIndeksPomiaru[1] - 1;
-    		/*/czujnik 1 zmienia stan enkodera między wartością 1 i 2
-    		if (cStanCzujnika[1] == 1)
-    			cStanCzujnika[1] = 2;
-    		else
-    		if (cStanCzujnika[1] == 2)
-    			cStanCzujnika[1] = 1;
-    		cStanEnkodera[0] = cStanCzujnika[1];
-    		stPomiary[sIndeks].cStanBieżący12 = cStanEnkodera[0];
-    		stPomiary[sIndeks].cStanPoprzedni12 = cPoprzedniStanEnkodera[0];
-    		cKierunek12 = SprawdźKierunek(cStanEnkodera[0], &cPoprzedniStanEnkodera[0]);	//określ kierunek obrotów
-    		stPomiary[sIndeks].cKierunekObrotów12 = cKierunek12;*/
-
-    		SprawdźKierunekCzujników(1, &stEnkoder);
+    		//SprawdźKierunekCzujników(1, &stEnkoder);
+    		//stEnkoder.cPoprzedniStanEnkodera[0] = stEnkoder.cStanEnkodera[0];
+    		//stEnkoder.cStanEnkodera[0] = 2;
     		stPomiary[sIndeks].cKierunekObrotów12 = stEnkoder.cKierunek[0];
+    		stPomiary[sIndeks].cStanPoprzedni12  = stEnkoder.cPoprzedniStanEnkodera[0];
+    		stPomiary[sIndeks].cStanBieżący12 = stEnkoder.cStanEnkodera[0];
 
     		if (stPomiary[sIndeks].nCzas2 > MIN_CZAS)
     		{
-    			/*/w przypadku 3 magnesów ułożonych co 90° mierzone sąL 0=odcinek odpowiadający 1/2 obwodu, 1..2 odcinki podowiadające 1/4 obwodu.
-    			if (cPozycjaRolki[1] == 0)
-    				stPomiary[sIndeks].fPrędkość2 = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na odcinku dłuższym
-    			else
-    				stPomiary[sIndeks].fPrędkość2 = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na odcinku krótszym
+				stPomiary[sIndeks].fPrędkość2 = stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[1] += stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
+				//nCzas = PobierzCzasT7();	//start testowego pomiaru czasu
+				AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość2);
+				//nCzas = MinalCzas(nCzas);	//odczyt testowego pomiaru czasu
 
-    			stPomiary[sIndeks].cBieżącaPozycjaRolki2 = cPozycjaRolki[1];	//zapamiętaj pozycje w logu
-
-    			//Jeżeli mamy przynajmniej 3 obroty można  rozpocząć synchronizację położenia dłuższego odcinka obwodu rolki do pomiaru
-    			if (sIndeks >= 2)
-    			{
-    				float fWariantyPrędkości[3][3];	//wszystkie 3 możliwe rozkłady prędkości
-
-				//wariant 1: 1/2, 1/4, 1/4
-				fWariantyPrędkości[0][0] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 2].nCzas2 / 1000000);
-				fWariantyPrędkości[0][1] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 1].nCzas2 / 1000000);
-				fWariantyPrędkości[0][2] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 0].nCzas2 / 1000000);
-
-				//wariant 2: 1/4, 1/2, 1/4
-				fWariantyPrędkości[1][0] = (OBWOD_ROLKI_M / 4) / ((float)stPomiary[sIndeks - 2].nCzas2 / 1000000);
-				fWariantyPrędkości[1][1] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 1].nCzas2 / 1000000);
-				fWariantyPrędkości[1][2] = fWariantyPrędkości[0][2];	//wykorzystaj to co było już policzone
-
-				//wariant 3: 1/4, 1/4, 1/2
-				fWariantyPrędkości[2][0] = fWariantyPrędkości[1][0];
-				fWariantyPrędkości[2][1] = fWariantyPrędkości[0][1];
-				fWariantyPrędkości[2][2] = (OBWOD_ROLKI_M / 2) / ((float)stPomiary[sIndeks - 0].nCzas2 / 1000000);
-
-				//Metodą najmniejszych kwadratów oblicz dopasowanie pomiaru do jednego z wariantów
-				float fOdchylenie[3];
-				for (uint8_t w=0; w<3; w++)		//pętla po wariantach
-				{
-					//sumuj kwadrat różnicy...
-					fOdchylenie[w] = 0;
-					for (uint8_t n=0; n<3; n++)		//pętla po pomiarach
-					{
-						//fOdchylenie[w] += powf(stPomiary[sIndeks - n].fPrędkość2 - fWariantyPrędkości[w][n], 2);	//między pomiarem a wariantami rozkładu odległości na rolce
-						fOdchylenie[w] += powf(stPomiary[sIndeks - (2 - n)].fKalmanPredkość - fWariantyPrędkości[w][n], 2);	//między estymatą a wariantami rozkładu odległości na rolce
-					}
-					stPomiary[sIndeks].fOdchylenie[w] = fOdchylenie[w];
-				}
-
-				//sprawdź który wariant ma najmniejsze odchylenie od pomiaru
-				if (cKierunekObrotów[1])	//kierunek normalny do przodu
-				{
-					if ((fOdchylenie[0] < fOdchylenie[1]) && (fOdchylenie[0] < fOdchylenie[2]))	//wariant 1
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 2;
-					else
-					if ((fOdchylenie[1] < fOdchylenie[0]) && (fOdchylenie[1] < fOdchylenie[2]))	//wariant 2
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 1;
-					else
-					if ((fOdchylenie[2] < fOdchylenie[0]) && (fOdchylenie[2] < fOdchylenie[1]))	//wariant 3
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 0;
-				}
-				else	//ruch wstecz
-				{
-					if ((fOdchylenie[0] < fOdchylenie[1]) && (fOdchylenie[0] < fOdchylenie[2]))
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 0;
-					else
-					if ((fOdchylenie[1] < fOdchylenie[0]) && (fOdchylenie[1] < fOdchylenie[2]))
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 1;
-					else
-					if ((fOdchylenie[2] < fOdchylenie[0]) && (fOdchylenie[2] < fOdchylenie[1]))
-						stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 = 2;
-				}
-
-				//synchronizacja tylko na początku
-				if (sIndeks == 2)
-					cPozycjaRolki[1] = stPomiary[sIndeks].cSkorygowanaPozycjaRolki2;
+				//znajdź maksymalną prędkość
+				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
+					fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
 			}
+		}
 
-			//zmiana synchronizacji to prawdopodobna zmiana kierunku ale potrzeba co najmniej dwóch skorygowanych pozycji aby dobrze okreslić kierunek
-			if (sIndeks >= 3)
-				cKierunekObrotów[1] = (stPomiary[sIndeks].cSkorygowanaPozycjaRolki2 == stPomiary[sIndeks].cBieżącaPozycjaRolki2);
-			stPomiary[sIndeks].cKierunekObrotów2 = cKierunekObrotów[1];
+		if (cStatusPomiaru & SP_POMIAR_ROLKI3)
+		{
+			cStatusPomiaru &= ~SP_POMIAR_ROLKI3;
+			sIndeks = sIndeksPomiaru[2] - 1;
+			//SprawdźKierunekCzujników(2, &stEnkoder);
+			stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
 
-			//kolejna pozycja rolki zależy od kierunku obrotów
-			//if (cKierunekObrotów[1])
+			if (stPomiary[sIndeks].nCzas3 > MIN_CZAS)
 			{
-				cPozycjaRolki[1]++;
-				if (cPozycjaRolki[1] > 2)
-					cPozycjaRolki[1] = 0;
-			}*/
-			/*else
+				stPomiary[sIndeks].fPrędkość3 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[2] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
+				AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość3);
+
+				//znajdź maksymalną prędkość
+				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
+					fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
+			}
+		}
+
+		if (cStatusPomiaru & SP_POMIAR_ROLKI4)
+		{
+			cStatusPomiaru &= ~SP_POMIAR_ROLKI4;
+			sIndeks = sIndeksPomiaru[3] - 1;
+			//SprawdźKierunekCzujników(3, &stEnkoder);
+			stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
+
+			if (stPomiary[sIndeks].nCzas4 > MIN_CZAS)
 			{
-				cPozycjaRolki[1]--;
-				if (cPozycjaRolki[1] < 0)
-					cPozycjaRolki[1] = 2;
-			}*/
+				stPomiary[sIndeks].fPrędkość4 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
+				fDroga[3] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
+				AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość4);
 
-
-   			stPomiary[sIndeks].fPrędkość2 = stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas2 / 1000000);	//średnia prędkość na bieżącym odcinku
-			fDroga[1] += stEnkoder.cKierunek[0] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
-			//nCzas = PobierzCzasT7();	//start testowego pomiaru czasu
-			AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość2);
-			//nCzas = MinalCzas(nCzas);	//odczyt testowego pomiaru czasu
-
-			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
-				fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
+				//znajdź maksymalną prędkość
+				if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
+					fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
+			}
 		}
-	}
 
-	if (cStatusPomiaru & SP_POMIAR_ROLKI3)
-	{
-		cStatusPomiaru &= ~SP_POMIAR_ROLKI3;
-		sIndeks = sIndeksPomiaru[2] - 1;
-		//cStanEnkodera[1] ^= 0x01;					//zmień stan bitu 1 enkodera 2
-		//cKierunek34 = SprawdźKierunek(cStanEnkodera[1], &cPoprzedniStanEnkodera[1]);	//okreś kierunek obrotów
-		SprawdźKierunekCzujników(2, &stEnkoder);
-		stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
+		//ustaw dane z filtra Kalmana
+		stPomiary[sIndeks].fKalmanDroga = fX[0];
+		stPomiary[sIndeks].fKalmanPredkość = fX[1];
+		stPomiary[sIndeks].fKalmanPrzyspieszenie = fX[2];
+		stPomiary[sIndeks].fBłądDrogi1 = fX[3];
+		stPomiary[sIndeks].fBłądDrogi2 = fX[4];
+		stPomiary[sIndeks].fBłądDrogi3 = fX[5];
+		stPomiary[sIndeks].fBłądDrogi4 = fX[6];
 
-		if (stPomiary[sIndeks].nCzas3 > MIN_CZAS)
+		//pułapka na zerową estymatę prędkości
+		if ((fX[1] == 0.0f) || (stPomiary[sIndeks].fKalmanPredkość == 0.0f))
+			cBłąd = 1;
+
+		//przyszły nowe dane, więc przerysuj wykres
+		if (cStatusPomiaru & SP_NOWY_POMIAR)
 		{
-			stPomiary[sIndeks].fPrędkość3 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas3 / 1000000);	//średnia prędkość na bieżącym odcinku
-			fDroga[2] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
-			AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość3);
+			//oblicz liczbę pomiarów
+			uint32_t nMinCzas = 0xFFFFFFFF;
+			for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
+			{
+				if (sIndeksPomiaru[n] > sLiczbaPomiarów)
+					 sLiczbaPomiarów = sIndeksPomiaru[n];
+			}
+			fWspSkaliX = (float)OLED_SZEROKOSC / sLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
 
-			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
-				fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
-		}
-	}
-
-	if (cStatusPomiaru & SP_POMIAR_ROLKI4)
-	{
-		cStatusPomiaru &= ~SP_POMIAR_ROLKI4;
-		sIndeks = sIndeksPomiaru[3] - 1;
-		//cStanEnkodera[1] ^= 0x02;					//zmień stan bitu 2 enkodera 2
-		//cKierunek34 = SprawdźKierunek(cStanEnkodera[1], &cPoprzedniStanEnkodera[1]);	//okreś kierunek obrotów
-		SprawdźKierunekCzujników(3, &stEnkoder);
-		stPomiary[sIndeks].cKierunekObrotów34 = stEnkoder.cKierunek[1];
-
-		if (stPomiary[sIndeks].nCzas4 > MIN_CZAS)
-		{
-			stPomiary[sIndeks].fPrędkość4 = stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / ((float)stPomiary[sIndeks].nCzas4 / 1000000);	//średnia prędkość na bieżącym odcinku
-			fDroga[3] += stEnkoder.cKierunek[1] * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
-			AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość4);
-
-			//znajdź maksymalną prędkość
-			if (fPrędkośćMax < stPomiary[sIndeks].fKalmanPredkość)
-				fPrędkośćMax = stPomiary[sIndeks].fKalmanPredkość;
-		}
-	}
-
-	//ustaw dane z filtra Kalmana
-	stPomiary[sIndeks].fKalmanDroga = fX[0];
-	stPomiary[sIndeks].fKalmanPredkość = fX[1];
-	stPomiary[sIndeks].fKalmanPrzyspieszenie = fX[2];
-	stPomiary[sIndeks].fBłądDrogi1 = fX[3];
-	stPomiary[sIndeks].fBłądDrogi2 = fX[4];
-	stPomiary[sIndeks].fBłądDrogi3 = fX[5];
-	stPomiary[sIndeks].fBłądDrogi4 = fX[6];
-
-	//pułapka na zerową estymatę prędkości
-	if ((fX[1] == 0.0f) || (stPomiary[sIndeks].fKalmanPredkość == 0.0f))
-		cBłąd = 1;
-
-	//przyszły nowe dane, więc przerysuj wykres
-	if (cStatusPomiaru & SP_NOWY_POMIAR)
-	{
-		//oblicz liczbę pomiarów
-		uint32_t nMinCzas = 0xFFFFFFFF;
-		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
-		{
-			if (sIndeksPomiaru[n] > sLiczbaPomiarów)
-				 sLiczbaPomiarów = sIndeksPomiaru[n];
-		}
-		fWspSkaliX = (float)OLED_SZEROKOSC / sLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
-
-		//znajdź najmniejszy czas aby obliczyć współczynnik skalowania wykresu w Y
-		for (uint16_t n=0; n<sLiczbaPomiarów; n++)
-		{
-			if (stPomiary[n].nCzas1 && (stPomiary[n].nCzas1 < nMinCzas))
-				nMinCzas = stPomiary[n].nCzas1;
-			if (stPomiary[n].nCzas2 && (stPomiary[n].nCzas2 < nMinCzas))
-				nMinCzas = stPomiary[n].nCzas2;
-			if (stPomiary[n].nCzas3 && (stPomiary[n].nCzas3 < nMinCzas))
-				nMinCzas = stPomiary[n].nCzas3;
-			if (stPomiary[n].nCzas4 && (stPomiary[n].nCzas4 < nMinCzas))
-				nMinCzas = stPomiary[n].nCzas4;
-		 }
-		 fWspSkaliY = (float)OLED_WYSOKOSC / (OBWOD_ROLKI_M / ((float)nMinCzas / 1000000));	//tyle m/s na wysokości ekranu
-
-		 OLED_CzyśćBuforEkranu();
-		 //Jako pierwszy wyświetla napis aby można było na nim rysować wykresy
-		 sprintf(cBuforNapisów, "V  =%.2f  ", fPrędkośćMax);
-		 OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
-		 OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
-		 OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
-		 OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
-		 OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
-
-		 //rysuj poziomą podziałkę wykresu
-		 float fMaxPredkość = (float)OLED_WYSOKOSC / fWspSkaliY;
-		 uint8_t cMaxPredkość = (uint8_t)(ceilf(fMaxPredkość) + 1.0f);
-		 cMaxPredkość &= 0xFE;		//zamień na liczbę parzystą aby uniknąć podziału nieparzystych
-		 float fSkokPodziałki = (float)cMaxPredkość / LICZBA_PODZIALEK;
-		 for (uint8_t n=0; n<LICZBA_PODZIALEK; n++)
-		 {
-			 int16_t y = (int16_t)(fSkokPodziałki * (n+1) * fWspSkaliY);
-			 if ((y > 0) && (y < OLED_WYSOKOSC))
-			 {
-				 OLED_RysujLiniePoziomąPrzerywaną(SZEROKOSC_OPISU_PODZIALKI, OLED_WYSOKOSC - y, OLED_SZEROKOSC - SZEROKOSC_OPISU_PODZIALKI, 3);
-				 sprintf(cBuforNapisów, "%.1f", (n+1) * fSkokPodziałki);
-				 OLED_RysujNapis(cBuforNapisów, 0, OLED_WYSOKOSC - y - 3, &Font_6x8);
+			//znajdź najmniejszy czas aby obliczyć współczynnik skalowania wykresu w Y
+			for (uint16_t n=0; n<sLiczbaPomiarów; n++)
+			{
+				if (stPomiary[n].nCzas1 && (stPomiary[n].nCzas1 < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas1;
+				if (stPomiary[n].nCzas2 && (stPomiary[n].nCzas2 < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas2;
+				if (stPomiary[n].nCzas3 && (stPomiary[n].nCzas3 < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas3;
+				if (stPomiary[n].nCzas4 && (stPomiary[n].nCzas4 < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas4;
 			 }
-		 }
+			 fWspSkaliY = (float)OLED_WYSOKOSC / (OBWOD_ROLKI_M / ((float)nMinCzas / 1000000));	//tyle m/s na wysokości ekranu
 
-		 //rysuj wykresy prędkości wózka ze wszystkich 4 rolek jako punkty pomiarowe
-		 for (uint16_t x=0; x<sLiczbaPomiarów; x++)
-		 {
-			 cPozX = x * fWspSkaliX;
-			 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość1 * fWspSkaliY;
-			 OLED_RysujPiksel(cPozX, cPozY, 1);
-			 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość2 * fWspSkaliY;
-			 OLED_RysujPiksel(cPozX, cPozY, 1);
-			 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość3 * fWspSkaliY;
-			 OLED_RysujPiksel(cPozX, cPozY, 1);
-			 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość4 * fWspSkaliY;
-			 OLED_RysujPiksel(cPozX, cPozY, 1);
-		 }
+			 OLED_CzyśćBuforEkranu();
+			 //Jako pierwszy wyświetla napis aby można było na nim rysować wykresy
+			 sprintf(cBuforNapisów, "V  =%.2f  ", fPrędkośćMax);
+			 OLED_RysujNapis(cBuforNapisów, 20, 45, &Font_11x18);
+			 OLED_RysujNapis("max", 31, 45+18-10, &Font_7x10);		//przesunięcie w Y aby wyrównać do dołu
+			 OLED_RysujNapis("m", 120, 45-3, &Font_7x10);
+			 OLED_RysujNapis("s", 120, 45+8, &Font_7x10);
+			 OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 
-		 //rysuj wykres prędkości wózka z filtra Kalmana jako linię ciągłą
-		 uint16_t sStartX, sStartY, sStopX, sStopY;
-		 sStartX = sStartY = 0;
-		 for (uint16_t x=0; x<sLiczbaPomiarów; x++)
-		 {
-			 sStopX = x * fWspSkaliX;
-			 sStopY = stPomiary[x].fKalmanPredkość * fWspSkaliY;
-			 OLED_RysujLinię(sStartX, OLED_WYSOKOSC - sStartY, sStopX, OLED_WYSOKOSC - sStopY);
-			 sStartX = sStopX;
-			 sStartY = sStopY;
-		 }
+			 //rysuj poziomą podziałkę wykresu
+			 float fMaxPredkość = (float)OLED_WYSOKOSC / fWspSkaliY;
+			 uint8_t cMaxPredkość = (uint8_t)(ceilf(fMaxPredkość) + 1.0f);
+			 cMaxPredkość &= 0xFE;		//zamień na liczbę parzystą aby uniknąć podziału nieparzystych
+			 float fSkokPodziałki = (float)cMaxPredkość / LICZBA_PODZIALEK;
+			 for (uint8_t n=0; n<LICZBA_PODZIALEK; n++)
+			 {
+				 int16_t y = (int16_t)(fSkokPodziałki * (n+1) * fWspSkaliY);
+				 if ((y > 0) && (y < OLED_WYSOKOSC))
+				 {
+					 OLED_RysujLiniePoziomąPrzerywaną(SZEROKOSC_OPISU_PODZIALKI, OLED_WYSOKOSC - y, OLED_SZEROKOSC - SZEROKOSC_OPISU_PODZIALKI, 3);
+					 sprintf(cBuforNapisów, "%.1f", (n+1) * fSkokPodziałki);
+					 OLED_RysujNapis(cBuforNapisów, 0, OLED_WYSOKOSC - y - 3, &Font_6x8);
+				 }
+			 }
 
-		 //rysuj kierunek obrotu
+			 //rysuj wykresy prędkości wózka ze wszystkich 4 rolek jako punkty pomiarowe
+			 for (uint16_t x=0; x<sLiczbaPomiarów; x++)
+			 {
+				 cPozX = x * fWspSkaliX;
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość1 * fWspSkaliY;
+				 OLED_RysujPiksel(cPozX, cPozY, 1);
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość2 * fWspSkaliY;
+				 OLED_RysujPiksel(cPozX, cPozY, 1);
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość3 * fWspSkaliY;
+				 OLED_RysujPiksel(cPozX, cPozY, 1);
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość4 * fWspSkaliY;
+				 OLED_RysujPiksel(cPozX, cPozY, 1);
+			 }
 
-		 sprintf(cBuforNapisów, "stan: %d", stEnkoder.cStanEnkodera[0]);
-		 OLED_RysujNapis(cBuforNapisów, 80, 0, &Font_6x8);
-		 sprintf(cBuforNapisów, "kier: %+d", stEnkoder.cKierunek[0]);
-		 OLED_RysujNapis(cBuforNapisów, 80, 20, &Font_6x8);
-		 OLED_OdswiezEkran();
-	  }
+			 //rysuj wykres prędkości wózka z filtra Kalmana jako linię ciągłą
+			 uint16_t sStartX, sStartY, sStopX, sStopY;
+			 sStartX = sStartY = 0;
+			 for (uint16_t x=0; x<sLiczbaPomiarów; x++)
+			 {
+				 sStopX = x * fWspSkaliX;
+				 sStopY = stPomiary[x].fKalmanPredkość * fWspSkaliY;
+				 OLED_RysujLinię(sStartX, OLED_WYSOKOSC - sStartY, sStopX, OLED_WYSOKOSC - sStopY);
+				 sStartX = sStopX;
+				 sStartY = sStopY;
+			 }
 
+			 //rysuj kierunek obrotu
 
-
-
-	  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
-	  if (cStatusPomiaru & SP_GOTOWY)
-	  {
-		  if (sLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
-		  {
-			  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
-			  if (cBłąd == BLAD_OK)
-			  {
-				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
-				  //HAL_Delay(100);
-			  }
-			  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-			  //HAL_Delay(100);
-
-			  cBłąd = ZapiszPomiarNaKarte(stPomiary);
-			  if (cBłąd == BLAD_OK)
-			  {
-				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
-				  //HAL_Delay(100);
-				  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
-			  }
-			  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
-			  //HAL_Delay(100);
+			 sprintf(cBuforNapisów, "stan: %d", stEnkoder.cStanEnkodera[0]);
+			 OLED_RysujNapis(cBuforNapisów, 60, 0, &Font_6x8);
+			 sprintf(cBuforNapisów, "kier: %+d", stEnkoder.cKierunek[0]);
+			 OLED_RysujNapis(cBuforNapisów, 60, 15, &Font_6x8);
+			 OLED_OdswiezEkran();
 		  }
 
-		  cStatusPomiaru = 0;	//kasuj wszystkie flagi
-		  cLicznikOczekiwania = 0;
-	  }
-	  else	//cStatusPomiaru nie jest SP_GOTOWY. Sprawdź czy wystąpił timeout
-	  {
-		  nCzas = MinalCzas(nCzasPoczatkuPomiaru);
-		  if ((nCzas > 5000000) && (cStatusPomiaru & SP_UZBROJONY)  && (cStatusPomiaru & SP_TRWA))	//timeout 5 sekund
+
+
+
+		  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
+		  if (cStatusPomiaru & SP_GOTOWY)
 		  {
-			  cBłąd = ZakończPomiarTimerem();
-			  cStatusPomiaru |= SP_GOTOWY;
+			  if (sLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
+			  {
+				  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
+				  if (cBłąd == BLAD_OK)
+				  {
+					  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie wysłał telemetrię
+					  //HAL_Delay(100);
+				  }
+				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+				  //HAL_Delay(100);
+
+				  cBłąd = ZapiszPomiarNaKarte(stPomiary);
+				  if (cBłąd == BLAD_OK)
+				  {
+					  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);	//błyśnij LED gdy poprawnie zapisał dane na kartę
+					  //HAL_Delay(100);
+					  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
+				  }
+				  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);	//niski poziom gasi LED
+				  //HAL_Delay(100);
+			  }
+
+			  cStatusPomiaru = 0;	//kasuj wszystkie flagi
+			  cLicznikOczekiwania = 0;
+		  }
+		  else	//cStatusPomiaru nie jest SP_GOTOWY. Sprawdź czy wystąpił timeout
+		  {
+			  nCzas = MinalCzas(nCzasPoczatkuPomiaru);
+			  if ((nCzas > 5000000) && (cStatusPomiaru & SP_UZBROJONY)  && (cStatusPomiaru & SP_TRWA))	//timeout 5 sekund
+			  {
+				  cBłąd = ZakończPomiarTimerem();
+				  cStatusPomiaru |= SP_GOTOWY;
+			  }
 		  }
 	  }
-  }
   /* USER CODE END 3 */
 }
 

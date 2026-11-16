@@ -341,14 +341,14 @@ int FormatujDaneKierunku(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
 		*(cBufor + n) = 0;
 
-	//					        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     stan pst   kier
+	//					        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     popr stan kier
 	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %d\t %d\t %d\r\n", cIndeks,
 					stPomiary->nCzas1, stPomiary->fPrędkość1,
 					stPomiary->nCzas2, stPomiary->fPrędkość2,
 					stPomiary->nCzas3, stPomiary->fPrędkość3,
 					stPomiary->nCzas4, stPomiary->fPrędkość4,
 					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
-					stPomiary->cStanBieżący12, stPomiary->cStanPoprzedni12, stPomiary->cKierunekObrotów12);
+					stPomiary->cStanPoprzedni12, stPomiary->cStanBieżący12, stPomiary->cKierunekObrotów12);
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do
 	{
