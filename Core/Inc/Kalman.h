@@ -13,9 +13,16 @@
 #define KSTAN	7	//rozmiar wektora stanu: droga, prędkość, przyspieszenie i błędy prędkości 4 rolek
 #define KPOM	2	//rozmiar wektora pomiaru: droga i prędkość
 
-//#define WARIANCJA_ZRYWUL	800.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
-#define WARIANCJA_ZRYWUL	1000.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
-#define WARIANCJA_POSLIZGU 	0.12f		//okresla jak szybko może zmieniać się poślizg (zmiana drogi) rolek
+//#define WARIANCJA_ZRYWUL	1000.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
+#define WARIANCJA_ZRYWUL					100.0f		//określa jak szybko może zmieniać się zryw, czyli pochodna przyspieszenia. To determinuje dynamikę modelu
+#define POCZATKOWA_WARIANCJA_PREDKCJI_DROGI				0.0013f	//zakładam wartość: (obwód rolki / liczba magnesów)^2
+#define POCZATKOWA_WARIANCJA_PREDKCJI_PREDKOSCI			0.003f	//zakładam: ((obwód rolki / liczba magnesów) / (4ms / liczba magnesów))^2
+#define POCZATKOWA_WARIANCJA_PREDKCJI_PRZYSPIESZENIA	0.001f
+#define POCZATKOWA_WARIANCJA_POSLIZGU					0.1f
+#define WARIANCJA_POMIARU_DROGI 			0.07;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
+#define WARIANCJA_POMIARU_PREDKOSCI 		32.0;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
+
+#define WARIANCJA_POSLIZGU 	0.012f		//okresla jak szybko może zmieniać się poślizg (zmiana drogi) rolek
 #define WARIANCJA_PREDKOSCI	2.5f		//służy do pomiaru jakości pojedynczego pomiaru metodą Mahalanobisa
 
 uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float *fVRolki1, float *fVRolki2, float *fCzas1, float *fCzas2);

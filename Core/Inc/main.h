@@ -65,9 +65,9 @@ void Error_Handler(void);
 #define D_C_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO		24		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO		26		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
-#define ROZMIAR_BUF_POMIAROW	500
+#define ROZMIAR_BUF_POMIAROW	1000
 #define LICZBA_CZUJNIKOW		4		//liczba wejść czujnikiów
 #define LICZBA_KANALOW			2		//liczba kanałów pomiarowych. Każdy kanał składa się z 2 czujników
 #define	DROGA_CALKOWITA			9.500f	//długość bieżni wyrzutni [m]
@@ -81,11 +81,13 @@ void Error_Handler(void);
 #define MASA_BSP				78.0f	//masa BSP [kg]
 #define SILA_TLOKA				(MASA_BSP * PRZYSP_STARTOWE)	// Zakładam siłę napędzajacą jako iloczyn masy BSP i zmierzonego przyspieszenia [N]
 #define OKRES_PETLI				100	//czas obiegu pętli głównej programu [us]
-#define LICZBA_PODZIALEK		4	//liczba podziałek dla wykresu na ekranie
+#define LICZBA_PODZIALEK		3	//liczba podziałek dla wykresu na ekranie
 #define SZEROKOSC_OPISU_PODZIALKI	19	//3 znaki po 6 pixeli
 #define LICZBA_POMIAROW_DO_ZAPISU	10	//musi być przynajmniej tyle pomiarów aby zarejestrowało dane
 #define MAX_PREDKOSC			100	//teoretyczna maksymalna prędkość [m/s] z jaką możemy wyobrazić sobie pracę
 #define MIN_CZAS				(1000000 * OBWOD_ROLKI_M / (MAX_PREDKOSC * MAGNESOW_NA_ROLCE))	//minimalny czas jaki mozna zarejestrować [us]
+
+#define WYSOKOSC_ZERA_WYKRESU	52
 
 //znaczenia bitów zmiennej cStatusPomiaru
 #define SP_UZBROJONY			0x01	//timer został uruchomiony i czeka na pomiar
@@ -99,7 +101,9 @@ void Error_Handler(void);
 
 typedef struct
 {
-	uint32_t nCzas[LICZBA_CZUJNIKOW];				//czas między impulsem wejścia A i B
+	uint32_t nZegar;			//32-bitowa wartość timera w chwili pomiaru
+	uint8_t cAktywnyCzujnik;	//indeks czujnika, który wyzwolił pomiar
+	float fDroga[LICZBA_CZUJNIKOW];		//droga widziana każdym czujnikiem
 	float fPrędkość[LICZBA_CZUJNIKOW];			//prędkość obliczona dla obrotu rolki 1 [m/s]
 	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
 	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]

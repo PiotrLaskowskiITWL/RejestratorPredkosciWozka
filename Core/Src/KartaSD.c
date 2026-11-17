@@ -255,7 +255,7 @@ int FormatujNagłówekDanych(char *cBufor)
 	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
 		*(cBufor + n) = 0;
 	//wersja dla symetryczne rozłozonych magnesów
-	return sprintf(cBufor, "Nr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
+	return sprintf(cBufor, "Nr\t timer[us]\t Kierunek\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\r\n");	//\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
 
 	//wersja z detekcją kierunku dla niesymetrycznue rozlozonych magnesów
 	//return sprintf(cBufor, "Nr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t PozBiez2\t PozKoryg2\t Kierunek2\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
@@ -283,15 +283,14 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 		*(cBufor + n) = 0;
 
 	//wersja dla symetryczne rozłozonych magnesów
-	//						        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
-		nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.2f\t %.2f\t %.2f\t %.2f\r\n", cIndeks,
-					stPomiary->nCzas[0], stPomiary->fPrędkość[0],
-					stPomiary->nCzas[1], stPomiary->fPrędkość[1],
-					stPomiary->nCzas[2], stPomiary->fPrędkość[2],
-					stPomiary->nCzas[3], stPomiary->fPrędkość[3],
-					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
-					stPomiary->fBłądDrogi[0], stPomiary->fBłądDrogi[1], stPomiary->fBłądDrogi[2], stPomiary->fBłądDrogi[3],
-					stPomiary->fOdlMahalanobisaV[0], stPomiary->fOdlMahalanobisaV[1], stPomiary->fOdlMahalanobisaV[2], stPomiary->fOdlMahalanobisaV[3]);
+	//						        Nr   timer kier Droga1 Droga2 Droga3 Droga4 v1     v2     v3     v4     kL     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
+		nRozmiar = sprintf(cBufor, "%u\t %lu\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n",
+				cIndeks, stPomiary->nZegar, stPomiary->cKierunekObrotów,
+				stPomiary->fDroga[0], stPomiary->fDroga[1], stPomiary->fDroga[2], stPomiary->fDroga[3],
+				stPomiary->fPrędkość[0], stPomiary->fPrędkość[1], stPomiary->fPrędkość[2], stPomiary->fPrędkość[3],
+				stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
+				stPomiary->fBłądDrogi[0], stPomiary->fBłądDrogi[1], stPomiary->fBłądDrogi[2], stPomiary->fBłądDrogi[3]);
+				//stPomiary->fOdlMahalanobisaV[0], stPomiary->fOdlMahalanobisaV[1], stPomiary->fOdlMahalanobisaV[2], stPomiary->fOdlMahalanobisaV[3]);
 
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do

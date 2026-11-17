@@ -148,8 +148,8 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 
 
 	//inicjuj pierwszy pomiar i wektor stanu
-	fX[0] = OBWOD_ROLKI_M;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
-	//fX[0] = 0.00001f;
+	//fX[0] = OBWOD_ROLKI_M;		//droga - pierwszy pomiar pojawia się po wykonaniu jednego obrotu rolki
+	fX[0] = 0.00001f;		//droga
 	fX[1] = 0.00001f;		//prędkość
 	fX[2] = 0.00001f;		//przyspieszenie
 	fX[3] = 0.00001f;		//błąd prędkości rolki 1
@@ -165,18 +165,18 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 	//pozostałe pola sa kowariancją, czyli zależnością między błędami jednego pomiaru a drugiego. Zakładam że
 	//błędy pomiarów są niezależne, więc kowariancja jest ustawiona na 0. W rzeczywistosci pomiar prędkości jest liczony
 	//z danych czujnika wysokości więc korelacja istnieje ale na razie nie potrafię jej obliczyć
-	fR[0][0] = 0.056;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
-	fR[1][1] = 0.407;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
+	fR[0][0] = WARIANCJA_POMIARU_DROGI;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
+	fR[1][1] = WARIANCJA_POMIARU_PREDKOSCI;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
 	arm_mat_init_f32(&mR, KPOM, KPOM, &fR[0][0]);
 
 	//początkowa wariancja predykcji
-	fP[0][0] = WARIANCJA_POSLIZGU;
-	fP[1][1] = 10;
-	fP[2][2] = 100;
-	fP[3][3] = WARIANCJA_POSLIZGU;
-	fP[4][4] = WARIANCJA_POSLIZGU;
-	fP[5][5] = WARIANCJA_POSLIZGU;
-	fP[6][6] = WARIANCJA_POSLIZGU;
+	fP[0][0] = POCZATKOWA_WARIANCJA_PREDKCJI_DROGI;
+	fP[1][1] = POCZATKOWA_WARIANCJA_PREDKCJI_PREDKOSCI;
+	fP[2][2] = POCZATKOWA_WARIANCJA_PREDKCJI_PRZYSPIESZENIA;
+	fP[3][3] = POCZATKOWA_WARIANCJA_POSLIZGU;
+	fP[4][4] = POCZATKOWA_WARIANCJA_POSLIZGU;
+	fP[5][5] = POCZATKOWA_WARIANCJA_POSLIZGU;
+	fP[6][6] = POCZATKOWA_WARIANCJA_POSLIZGU;
 	arm_mat_init_f32(&mP, KSTAN, KSTAN, &fP[0][0]);
 
 	//macierz przejścia oblicza wartość predykcji następnego stanu
@@ -186,10 +186,10 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 	fF[1][1] = 1.0f;				//droga = poprzednia prędkość
 	fF[1][2] = OKRES_PETLI;			//prędkość = przyspieszenie * dT
 	fF[2][2] = 1.0f;				//przyspieszenie = poprzednie przyspieszenie
-	fF[3][3] = 1.0f;				//błąd prędkości rolki 1
-	fF[4][4] = 1.0f;				//błąd prędkości rolki 2
-	fF[5][5] = 1.0f;				//błąd prędkości rolki 3
-	fF[6][6] = 1.0f;				//błąd prędkości rolki 4
+	fF[3][3] = 1.0f;				//błąd drogi rolki 1
+	fF[4][4] = 1.0f;				//błąd drogi rolki 2
+	fF[5][5] = 1.0f;				//błąd drogi rolki 3
+	fF[6][6] = 1.0f;				//błąd drogi rolki 4
 	arm_mat_init_f32(&mF, KSTAN, KSTAN, &fF[0][0]);
 
 	//inicjalizacja szumu procesu. Zakładam że szum procesu zależy od podchodnej przyspieszenia, czyli zrywu
@@ -258,7 +258,7 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 
 	//obliczenie szumu procesu Q. Zakładam że szum procesu zależy od wariancji zrywu akcelerometru  [m/s^3]^2 = [m^2/s^6]
 	float32_t fOkresPetli = fDeltaCzasu / 1e6;	//czas od ostatniego wykonania w [sekundach]
-	fQ[0][0] = powf(fOkresPetli, 6) / 36 * WARIANCJA_ZRYWUL;
+	/*fQ[0][0] = powf(fOkresPetli, 6) / 36 * WARIANCJA_ZRYWUL;
 	fQ[0][1] = powf(fOkresPetli, 5) / 12 * WARIANCJA_ZRYWUL;
 	fQ[0][2] = powf(fOkresPetli, 4) / 6  * WARIANCJA_ZRYWUL;
 	fQ[1][0] = powf(fOkresPetli, 5) / 12 * WARIANCJA_ZRYWUL;
@@ -266,7 +266,19 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 	fQ[1][2] = powf(fOkresPetli, 3) / 2  * WARIANCJA_ZRYWUL;
 	fQ[2][0] = powf(fOkresPetli, 4) / 6  * WARIANCJA_ZRYWUL;
 	fQ[2][1] = powf(fOkresPetli, 3) / 2  * WARIANCJA_ZRYWUL;
-	fQ[2][2] = powf(fOkresPetli, 2) 	 * WARIANCJA_ZRYWUL;
+	fQ[2][2] = powf(fOkresPetli, 2) 	 * WARIANCJA_ZRYWUL;*/
+
+	//proces modelowy białego szumu
+	fQ[0][0] = powf(fOkresPetli, 5) / 20 * WARIANCJA_ZRYWUL;
+	fQ[0][1] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWUL;
+	fQ[0][2] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWUL;
+	fQ[1][0] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWUL;
+	fQ[1][1] = powf(fOkresPetli, 3) / 3  * WARIANCJA_ZRYWUL;
+	fQ[1][2] = powf(fOkresPetli, 2) / 2  * WARIANCJA_ZRYWUL;
+	fQ[2][0] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWUL;
+	fQ[2][1] = powf(fOkresPetli, 4) / 2  * WARIANCJA_ZRYWUL;
+	fQ[2][2] = powf(fOkresPetli, 1) / 1	 * WARIANCJA_ZRYWUL;
+
 	fQ[3][3] = fOkresPetli * WARIANCJA_POSLIZGU;
 	fQ[4][4] = fOkresPetli * WARIANCJA_POSLIZGU;
 	fQ[5][5] = fOkresPetli * WARIANCJA_POSLIZGU;
