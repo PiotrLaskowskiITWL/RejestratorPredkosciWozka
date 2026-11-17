@@ -36,17 +36,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef struct
-{
-	uint32_t nCzas[LICZBA_CZUJNIKOW];				//czas między impulsem wejścia A i B
-	float fPrędkość[LICZBA_CZUJNIKOW];			//prędkość obliczona dla obrotu rolki 1 [m/s]
-	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
-	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]
-	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]
-	float fBłądDrogi[LICZBA_CZUJNIKOW];			//poślizg rolki 1 względem estymowanej drogi [m]
-	float fOdlMahalanobisaV[LICZBA_CZUJNIKOW];	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
-	int8_t cKierunekObrotów;			//kierunek -1..1 pary czujników 1 i 2
-} stPomiary_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -106,6 +96,18 @@ void Error_Handler(void);
 #define SP_POMIAR_ROLKI2		0x20	//pojawił się nowy impuls od rolki 2
 #define SP_POMIAR_ROLKI3		0x40	//pojawił się nowy impuls od rolki 3
 #define SP_POMIAR_ROLKI4		0x80	//pojawił się nowy impuls od rolki 4
+
+typedef struct
+{
+	uint32_t nCzas[LICZBA_CZUJNIKOW];				//czas między impulsem wejścia A i B
+	float fPrędkość[LICZBA_CZUJNIKOW];			//prędkość obliczona dla obrotu rolki 1 [m/s]
+	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
+	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]
+	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]
+	float fBłądDrogi[LICZBA_CZUJNIKOW];			//poślizg rolki 1 względem estymowanej drogi [m]
+	float fOdlMahalanobisaV[LICZBA_CZUJNIKOW];	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
+	int8_t cKierunekObrotów;			//kierunek -1..1 pary czujników 1 i 2
+} stPomiary_t;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

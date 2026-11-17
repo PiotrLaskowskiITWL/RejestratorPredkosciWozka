@@ -82,6 +82,7 @@ uint16_t sLiczbaPomiarów;
 extern uint8_t cStatusPomiaru;
 extern uint16_t sIndeksPomiaru1;
 extern uint16_t sIndeksPomiaru2;
+
 uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasStart, nCzasStop;
 uint32_t nCzasPetliGłównej, nPoprzedniCzasPetliGłównej;
@@ -336,10 +337,10 @@ int main(void)
 		stPomiary[sIndeks].fKalmanDroga = fX[0];
 		stPomiary[sIndeks].fKalmanPredkość = fX[1];
 		stPomiary[sIndeks].fKalmanPrzyspieszenie = fX[2];
-		stPomiary[sIndeks].fBłądDrogi1 = fX[3];
-		stPomiary[sIndeks].fBłądDrogi2 = fX[4];
-		stPomiary[sIndeks].fBłądDrogi3 = fX[5];
-		stPomiary[sIndeks].fBłądDrogi4 = fX[6];
+		stPomiary[sIndeks].fBłądDrogi[0] = fX[3];
+		stPomiary[sIndeks].fBłądDrogi[1] = fX[4];
+		stPomiary[sIndeks].fBłądDrogi[2] = fX[5];
+		stPomiary[sIndeks].fBłądDrogi[3] = fX[6];
 
 		//pułapka na zerową estymatę prędkości
 		if ((fX[1] == 0.0f) || (stPomiary[sIndeks].fKalmanPredkość == 0.0f))
@@ -350,24 +351,23 @@ int main(void)
 		{
 			//oblicz liczbę pomiarów
 			uint32_t nMinCzas = 0xFFFFFFFF;
-			for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
-			{
-				if (sIndeksPomiaru[n] > sLiczbaPomiarów)
-					 sLiczbaPomiarów = sIndeksPomiaru[n];
-			}
+			if (sIndeksPomiaru1 > sLiczbaPomiarów)
+				 sLiczbaPomiarów = sIndeksPomiaru1;
+			if (sIndeksPomiaru2 > sLiczbaPomiarów)
+				sLiczbaPomiarów = sIndeksPomiaru2;
 			fWspSkaliX = (float)OLED_SZEROKOSC / sLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
 
 			//znajdź najmniejszy czas aby obliczyć współczynnik skalowania wykresu w Y
 			for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 			{
-				if (stPomiary[n].nCzas1 && (stPomiary[n].nCzas1 < nMinCzas))
-					nMinCzas = stPomiary[n].nCzas1;
-				if (stPomiary[n].nCzas2 && (stPomiary[n].nCzas2 < nMinCzas))
-					nMinCzas = stPomiary[n].nCzas2;
-				if (stPomiary[n].nCzas3 && (stPomiary[n].nCzas3 < nMinCzas))
-					nMinCzas = stPomiary[n].nCzas3;
-				if (stPomiary[n].nCzas4 && (stPomiary[n].nCzas4 < nMinCzas))
-					nMinCzas = stPomiary[n].nCzas4;
+				if (stPomiary[n].nCzas[0] && (stPomiary[n].nCzas[0] < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas[0];
+				if (stPomiary[n].nCzas[1] && (stPomiary[n].nCzas[1] < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas[1];
+				if (stPomiary[n].nCzas[2] && (stPomiary[n].nCzas[2] < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas[2];
+				if (stPomiary[n].nCzas[3] && (stPomiary[n].nCzas[3] < nMinCzas))
+					nMinCzas = stPomiary[n].nCzas[3];
 			 }
 			 fWspSkaliY = (float)OLED_WYSOKOSC / (OBWOD_ROLKI_M / ((float)nMinCzas / 1000000));	//tyle m/s na wysokości ekranu
 
@@ -400,13 +400,13 @@ int main(void)
 			 for (uint16_t x=0; x<sLiczbaPomiarów; x++)
 			 {
 				 cPozX = x * fWspSkaliX;
-				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość1 * fWspSkaliY;
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość[0] * fWspSkaliY;
 				 OLED_RysujPiksel(cPozX, cPozY, 1);
-				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość2 * fWspSkaliY;
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość[1] * fWspSkaliY;
 				 OLED_RysujPiksel(cPozX, cPozY, 1);
-				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość3 * fWspSkaliY;
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość[2] * fWspSkaliY;
 				 OLED_RysujPiksel(cPozX, cPozY, 1);
-				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość4 * fWspSkaliY;
+				 cPozY = OLED_WYSOKOSC - stPomiary[x].fPrędkość[3] * fWspSkaliY;
 				 OLED_RysujPiksel(cPozX, cPozY, 1);
 			 }
 

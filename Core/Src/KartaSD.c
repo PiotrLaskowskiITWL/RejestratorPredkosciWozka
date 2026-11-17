@@ -108,8 +108,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 
 	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
-		//nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
-		nRozmiar = FormatujDaneKierunku(cBuforNapisów, n+1, stPomiary1 + n);
+		nRozmiar = FormatujDanePomiarowe(cBuforNapisów, n+1, stPomiary + n);
 		nStatus = fx_file_write(&fx_file, cBuforNapisów, nRozmiar);
 		if (nStatus)
 			return BLAD_ZAPISU_KARTY;
@@ -284,33 +283,15 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 		*(cBufor + n) = 0;
 
 	//wersja dla symetryczne rozłozonych magnesów
-	//						        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     pos1   pos2   pos3   pos4    m1    m2     m3     m4
+	//						        Nr   t1    v1      t2    v2     t3    v3     t4    v4     kl     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
 		nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.2f\t %.2f\t %.2f\t %.2f\r\n", cIndeks,
-					stPomiary1->nCzasA, stPomiary1->fPrędkość,
-					stPomiary1->nCzasB, stPomiary1->fPrędkość,
-					stPomiary2->nCzasA, stPomiary2->fPrędkość,
-					stPomiary2->nCzasB, stPomiary2->fPrędkość,
-					stPomiary1->fKalmanDroga, stPomiary1->fKalmanPredkość, stPomiary1->fKalmanPrzyspieszenie, stPomiary1->fBłądDrogi,
-					stPomiary2->fKalmanDroga, stPomiary2->fKalmanPredkość, stPomiary2->fKalmanPrzyspieszenie, stPomiary2->fBłądDrogi,
-					stPomiary1->fOdlMahalanobisaV1, stPomiary1->fOdlMahalanobisaV2);
-
-
-/*/						        Nr   t1    v1      t2    v2     pb2  bk2  k2   t3    v3     t4    v4     kl     kv      ka      pos1 pos2   pos3   pos4    m1    m2     m3     m4
-	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %d\t %d\t %d\t %lu\t %.2f\t %lu\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.2f\t %.2f\t %.2f\t %.2f\r\n", cIndeks,
-				stPomiary->nCzas1, stPomiary->fPrędkość1,
-				stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->cBieżącaPozycjaRolki2, stPomiary->cSkorygowanaPozycjaRolki2, stPomiary->cKierunekObrotów2,
-				stPomiary->nCzas3, stPomiary->fPrędkość3,
-				stPomiary->nCzas4, stPomiary->fPrędkość4,
-				stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4,
-				stPomiary->fOdlMahalanobisaV1, stPomiary->fOdlMahalanobisaV2, stPomiary->fOdlMahalanobisaV3, stPomiary->fOdlMahalanobisaV4);*/
-
-	/*/wersja uproszczona do debugowania rolki 2
-//						        Nr   t1    v1      t2    v2     pb2  bk2  k2   odW-0  odW-1  odW-2
-	nRozmiar = sprintf(cBufor, "%u\t %lu\t %.2f\t  %lu\t %.2f\t %d\t %d\t %d\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n", cIndeks,
-					stPomiary->nCzas1, stPomiary->fPrędkość1,
-					stPomiary->nCzas2, stPomiary->fPrędkość2, stPomiary->cBieżącaPozycjaRolki2, stPomiary->cSkorygowanaPozycjaRolki2, stPomiary->cKierunekObrotów2,
-					stPomiary->fOdchylenie[0], stPomiary->fOdchylenie[1], stPomiary->fOdchylenie[2],
-					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie, stPomiary->fBłądDrogi1, stPomiary->fBłądDrogi2, stPomiary->fBłądDrogi3, stPomiary->fBłądDrogi4);*/
+					stPomiary->nCzas[0], stPomiary->fPrędkość[0],
+					stPomiary->nCzas[1], stPomiary->fPrędkość[1],
+					stPomiary->nCzas[2], stPomiary->fPrędkość[2],
+					stPomiary->nCzas[3], stPomiary->fPrędkość[3],
+					stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie,
+					stPomiary->fBłądDrogi[0], stPomiary->fBłądDrogi[1], stPomiary->fBłądDrogi[2], stPomiary->fBłądDrogi[3],
+					stPomiary->fOdlMahalanobisaV[0], stPomiary->fOdlMahalanobisaV[1], stPomiary->fOdlMahalanobisaV[2], stPomiary->fOdlMahalanobisaV[3]);
 
 	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
 	do

@@ -34,8 +34,7 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 	//wykonaj obliczenia prędkości dla wszystkich danych
 	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
-		//nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n+1, stPomiary + n);
-		nRozmiar = FormatujDaneKierunku(cBuforTelemetrii, n+1, stPomiary + n);	//testowo krótszy ciąg
+		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n+1, stPomiary + n);
 		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
 	}
 	return cBłąd;

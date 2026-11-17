@@ -17,7 +17,7 @@ extern stEnkoder_t stEnkoder;
 extern TIM_HandleTypeDef htim2;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 //extern stPomiary_t stPomiary2[ROZMIAR_BUF_POMIAROW];
-uint16_t sIndeksPomiaru1, sIndeksPomiaru2;
+uint16_t sIndeksPomiaru[LICZBA_KANALOW];
 uint8_t cPoprzedniPomiar[LICZBA_KANALOW];
 uint8_t cStatusPomiaru;
 extern uint32_t nCzasPoczatkuPomiaru;
@@ -60,11 +60,15 @@ uint8_t RozpocznijPomiarTimerem(void)
 		stPomiary[n].fKalmanDroga = 0.0f;
 		stPomiary[n].fKalmanPredkość = 0.0f;
 		stPomiary[n].fKalmanPrzyspieszenie = 0.0f;
-		stPomiary[n].fBłądDrogi = 0.0f;
+		stPomiary[n].fBłądDrogi[0] = 0.0f;
+		stPomiary[n].fBłądDrogi[1] = 0.0f;
+		stPomiary[n].fBłądDrogi[2] = 0.0f;
+		stPomiary[n].fBłądDrogi[3] = 0.0f;
 		stPomiary[n].cKierunekObrotów = 1;	//domyslny kierunek obrotów
 	}
 
-	sIndeksPomiaru1 = sIndeksPomiaru2 = 0;
+	for (uint16_t n=0; n<LICZBA_KANALOW; n++)
+		sIndeksPomiaru[n] = 0;
 	return cBłąd;
 }
 
@@ -103,8 +107,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			nPoprzedniZegar[0] = nBieżącyZegar[0];
 			nBieżącyZegar[0] = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			cStatusPomiaru |= SP_POMIAR_ROLKI1;			//pojawił się nowy impuls od rolki 1
-			sIndeksPomiaru1++;
-			if (sIndeksPomiaru1 == ROZMIAR_BUF_POMIAROW)
+			sIndeksPomiaru[0]++;
+			if (sIndeksPomiaru[0] == ROZMIAR_BUF_POMIAROW)
 			{
 				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_1);
 				cStatusPomiaru |= SP_GOTOWY;
@@ -116,8 +120,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			nPoprzedniZegar[1] = nBieżącyZegar[1];
 			nBieżącyZegar[1] = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
 			cStatusPomiaru |= SP_POMIAR_ROLKI2;		//pojawił się nowy impuls od rolki 2
-			sIndeksPomiaru1++;
-			if (sIndeksPomiaru1 == ROZMIAR_BUF_POMIAROW)
+			sIndeksPomiaru[0]++;
+			if (sIndeksPomiaru[0] == ROZMIAR_BUF_POMIAROW)
 			{
 				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_2);
 				cStatusPomiaru |= SP_GOTOWY;
@@ -129,8 +133,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			nPoprzedniZegar[2] = nBieżącyZegar[2];
 			nBieżącyZegar[2] = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
 			cStatusPomiaru |= SP_POMIAR_ROLKI3;		//pojawił się nowy impuls od rolki 3
-			sIndeksPomiaru2++;
-			if (sIndeksPomiaru2 == ROZMIAR_BUF_POMIAROW)
+			sIndeksPomiaru[1]++;
+			if (sIndeksPomiaru[1] == ROZMIAR_BUF_POMIAROW)
 			{
 				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_3);
 				cStatusPomiaru |= SP_GOTOWY;
@@ -142,8 +146,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			nPoprzedniZegar[3] = nBieżącyZegar[3];
 			nBieżącyZegar[3] = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
 			cStatusPomiaru |= SP_POMIAR_ROLKI4;		//pojawił się nowy impuls od rolki 4
-			sIndeksPomiaru2++;
-			if (sIndeksPomiaru2 == ROZMIAR_BUF_POMIAROW)
+			sIndeksPomiaru[1]++;
+			if (sIndeksPomiaru[1] == ROZMIAR_BUF_POMIAROW)
 			{
 				HAL_TIM_IC_Stop_IT(&htim2,  TIM_CHANNEL_4);
 				cStatusPomiaru |= SP_GOTOWY;
