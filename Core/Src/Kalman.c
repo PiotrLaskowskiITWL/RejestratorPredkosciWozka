@@ -14,7 +14,7 @@
 
 
 float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
-static float32_t fZ[KPOM];					//wektor pomiaru: 0=droga, 1=prędkość
+static float32_t fZ[KPOM];					//wektor pomiaru: 0=droga, 1=prędkość, 2=przyspieszenie
 static float32_t fF[KSTAN][KSTAN];			//macierz przejścia wektora stanu
 static float32_t fP[KSTAN][KSTAN];			//macierz kowariancji predykcji
 static float32_t fR[KPOM][KPOM];			//macierz kowariancji pomiaru prędkości z rolki
@@ -206,21 +206,25 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 	fH1[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 1
 	fH1[0][3] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 1
 	fH1[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 1
+	fH1[2][2] = 1.0f;		//przyspieszenie obserwuje przyspieszenie rolki 1
 	arm_mat_init_f32(&mH1, KPOM, KSTAN, &fH1[0][0]);
 
 	fH2[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 2
 	fH2[0][4] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 2
 	fH2[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 2
+	fH2[2][2] = 1.0f;		//przyspieszenie obserwuje przyspieszenie rolki 2
 	arm_mat_init_f32(&mH2, KPOM, KSTAN, &fH2[0][0]);
 
 	fH3[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 3
 	fH3[0][5] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 3
 	fH3[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 3
+	fH3[2][2] = 1.0f;		//przyspieszenie obserwuje przyspieszenie rolki 3
 	arm_mat_init_f32(&mH3, KPOM, KSTAN, &fH3[0][0]);
 
 	fH4[0][0] = 1.0f;		//droga rolki obserwuje drogę rolki 4
 	fH4[0][6] = 1.0f;		//błąd drogi rolki 1 obserwuje drogę rolki 4
 	fH4[1][1] = 1.0f;		//prędkość rolki obserwuje prędkość rolki 4
+	fH4[2][2] = 1.0f;		//przyspieszenie obserwuje przyspieszenie rolki 4
 	arm_mat_init_f32(&mH4, KPOM, KSTAN, &fH4[0][0]);
 	return cBłąd;
 }
@@ -299,12 +303,13 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
 	fZ[0] = fDroga;
 	fZ[1] = fPredkość;
+	fZ[2] = fPrzyspieszenie;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
 	stPomiary[sIndeksPomiaru[0]].fOdlMahalanobisaV[0] = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
@@ -383,12 +388,13 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Zwraca: kod błędu
 // Czas wykonania: 748 us na 24 MHz, 190 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
 	fZ[0] = fDroga;
 	fZ[1] = fPredkość;
+	fZ[2] = fPrzyspieszenie;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
 	stPomiary[sIndeksPomiaru[1]].fOdlMahalanobisaV[1] = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
@@ -467,12 +473,13 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
 	fZ[0] = fDroga;
 	fZ[1] = fPredkość;
+	fZ[2] = fPrzyspieszenie;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
 	stPomiary[sIndeksPomiaru[2]].fOdlMahalanobisaV[2] = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);
@@ -552,12 +559,13 @@ uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość)
+uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
 	fZ[0] = fDroga;
 	fZ[1] = fPredkość;
+	fZ[2] = fPrzyspieszenie;
 
 	//zanim zostanie zrobiona aktualziacja estymaty pomiarem policz odległość Mahalanobisa
 	stPomiary[sIndeksPomiaru[3]].fOdlMahalanobisaV[3] = OdległośćMahalanobisa(fPredkość, fX[1], WARIANCJA_PREDKOSCI);

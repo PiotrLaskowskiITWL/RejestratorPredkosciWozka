@@ -105,6 +105,7 @@ typedef struct
 	uint8_t cAktywnyCzujnik;	//indeks czujnika, który wyzwolił pomiar
 	float fDroga[LICZBA_CZUJNIKOW];		//droga widziana każdym czujnikiem
 	float fPrędkość[LICZBA_CZUJNIKOW];			//prędkość obliczona dla obrotu rolki 1 [m/s]
+	float fPrzyspieszenie[LICZBA_CZUJNIKOW];	//obliczone przyspieszenie
 	float fKalmanDroga;			//droga wózka estymowana przez FK [m]
 	float fKalmanPredkość;		//prędkość wózka estymowana przez FK [m/s]
 	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]

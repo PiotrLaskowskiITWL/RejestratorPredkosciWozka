@@ -46,18 +46,18 @@ uint32_t MinalCzas(uint32_t nPoczatek)
 // Liczy upływ czasu mierzony timerem T7 z rozdzieczością 1us
 // Wersja z zewnetrznym czasem bieżącym
 // Parametry:
-// [we] nPoczatek - licznik czasu na na początku pomiaru
+// [we] nPoczątek - licznik czasu na na początku pomiaru
 // [we] nKoniec - licznik czasu na na końcu pomiaru
 // Zwraca: ilość czasu w mikrosekundach jaki upłynął do podanego czasu początkowego
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t MinalCzas2(uint32_t nPoczatek, uint32_t nKoniec)
+uint32_t MinalCzas2(uint32_t nPoczątek, uint32_t nKoniec)
 {
 	uint32_t nCzas;
 
-	if (nKoniec >= nPoczatek)
-		nCzas = nKoniec - nPoczatek;
+	if (nKoniec >= nPoczątek)
+		nCzas = nKoniec - nPoczątek;
 	else
-		nCzas = 0xFFFFFFFF - nPoczatek + nKoniec;
+		nCzas = 0xFFFFFFFF - nPoczątek + nKoniec;
 	return nCzas;
 }
 
