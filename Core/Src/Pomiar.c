@@ -17,7 +17,7 @@ extern stEnkoder_t stEnkoder;
 extern TIM_HandleTypeDef htim2;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 uint16_t sIndeksPomiaru;
-uint8_t cPoprzedniPomiar[LICZBA_KANALOW];
+//uint8_t cPoprzedniPomiar[LICZBA_KANALOW];
 uint8_t cStatusPomiaru;
 extern uint32_t nCzasPoczatkuPomiaru;
 
@@ -58,13 +58,14 @@ uint8_t RozpocznijPomiarTimerem(void)
 		stPomiary[n].fKalmanDroga = 0.0f;
 		stPomiary[n].fKalmanPredkość = 0.0f;
 		stPomiary[n].fKalmanPrzyspieszenie = 0.0f;
-		stPomiary[n].cKierunekObrotów = 1;	//domyslny kierunek obrotów
+		stPomiary[n].cKierunekObrotów = 0;
 
 		for (uint16_t x=0; x<LICZBA_CZUJNIKOW; x++)
 		{
 			stPomiary[n].fBłądDrogi[x] = 0.0f;
 			stPomiary[n].fDroga[x] = 0.0f;
 			stPomiary[n].fPrędkość[x] = 0.0f;
+			stPomiary[n].fPrzyspieszenie[x] = 0.0f;
 			stPomiary[n].fOdlMahalanobisaV[x] = 0.0f;
 		}
 	}

@@ -222,6 +222,8 @@ int main(void)
     		fDroga[0] = fDroga[1] = 0.0f;
     		stEnkoder.cOstatnioAktywnyCzujnik = 0xFF;	//brak definicji ostatniego czujnika
     		sIndeksProcesu = sIndeksPomiaru = 0;
+    		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
+    			fPoprzedniaPrędkość[n] = 0;				//zerpowa poprzednia prędkość jest potrzebna do policzenia pierwszego przyspieszenia
     	}
 
     	nCzasBiezący = PobierzCzasT7();
@@ -244,17 +246,26 @@ int main(void)
 				{
 					sIndeks = sIndeksProcesu - 1;	//sIndeksPomiaru[] jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar
 					nCzas = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);
-					//określenie prędkości przez porównanie czasów T1 i T2, gdzie:
-					nT1 = MinalCzas2(nPoprzedniZegar[0], nPoprzedniZegar[1]);			//T1=czas między poprzednim impulsem tego czujnika a ostatnim impulsem drugiego czujnika na tej rolce,
-					nT2 = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);	//T2=czas między ostatnim impulsem drugiego czujnika a impulsem bieżącym bieżącego czujnika
-					if (nT1 < nT2)
-						stPomiary[sIndeks].cKierunekObrotów = 1;
+					//Zmiana kierunku obrotów objawia się na dwa sposoby:
+					//1)dwa kolejne impulsy wystąpiły na tym samym czujniku
+					if (nPoprzedniZegar[0] > nPoprzedniZegar[1])	//poprzedni impuls na czujniku 1 wystąpił później niż na czujniku 2, czyli sa dwa kolejne impulsy na czujniku 1
+					{
+						stPomiary[sIndeks].cKierunekObrotów *= -1;	//zmień znak
+					}
 					else
-						stPomiary[sIndeks].cKierunekObrotów = -1;
+					{
+						//2) określenie kierunku przez porównanie czasów T1 i T2, gdzie:
+						nT1 = MinalCzas2(nPoprzedniZegar[0], nPoprzedniZegar[1]);			//T1 = czas między poprzednim impulsem czujnika 1 a ostatnim impulsem czujnika 2 na tej rolce,
+						nT2 = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 2 a impulsem bieżącym bieżącego czujnika 1
+						if (nT1 < nT2)
+							stPomiary[sIndeks].cKierunekObrotów = 1;
+						else
+							stPomiary[sIndeks].cKierunekObrotów = -1;
+					}
 
-					stPomiary[sIndeks].fPrędkość[0] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
 					fDroga[0] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 1
-					stPomiary[sIndeks].fPrzyspieszenie[0] = (fPoprzedniaPrędkość[0] - stPomiary[sIndeks].fPrędkość[0]) / ((float)nCzas / 1000000);
+					stPomiary[sIndeks].fPrędkość[0] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+					stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0]) / ((float)nCzas / 1000000);
 					fPoprzedniaPrędkość[0] = stPomiary[sIndeks].fPrędkość[0];
 					AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
 					stPomiary[sIndeks].fDroga[0] = fDroga[0];
@@ -273,17 +284,25 @@ int main(void)
 				{
 					sIndeks = sIndeksProcesu - 1;
 					nCzas = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);
-					//określenie prędkości przez porównanie czasów T1 i T2, gdzie:
-					nT1 = MinalCzas2(nPoprzedniZegar[1], nPoprzedniZegar[0]);			//T1=czas między poprzednim impulsem tego czujnika a ostatnim impulsem drugiego czujnika na tej rolce,
-					nT2 = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);	//T2=czas między ostatnim impulsem drugiego czujnika a impulsem bieżącym bieżącego czujnika
-					if (nT1 > nT2)
-						stPomiary[sIndeks].cKierunekObrotów = 1;
+					if (nPoprzedniZegar[1] > nPoprzedniZegar[0])	//poprzedni impuls na czujniku 2 wystąpił później niż na czujniku 1, czyli sa dwa kolejne impulsy na czujniku 2
+					{
+						stPomiary[sIndeks].cKierunekObrotów *= -1;	//zmień znak
+					}
 					else
-						stPomiary[sIndeks].cKierunekObrotów = -1;
+					{
+						//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
+						nT1 = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 1 a impulsem bieżącym bieżącego czujnika 2
+						nT2 = MinalCzas2(nPoprzedniZegar[1], nPoprzedniZegar[0]);			//T2 = czas między poprzednim impulsem czujnika 2 a ostatnim impulsem czujnika 1 na tej rolce,
 
-					stPomiary[sIndeks].fPrędkość[1] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+						if (nT1 < nT2)
+							stPomiary[sIndeks].cKierunekObrotów = 1;
+						else
+							stPomiary[sIndeks].cKierunekObrotów = -1;
+					}
+
 					fDroga[1] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 2
-					stPomiary[sIndeks].fPrzyspieszenie[1] = (fPoprzedniaPrędkość[1] - stPomiary[sIndeks].fPrędkość[1]) / ((float)nCzas / 1000000);
+					stPomiary[sIndeks].fPrędkość[1] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+					stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1]) / ((float)nCzas / 1000000);
 					fPoprzedniaPrędkość[1] = stPomiary[sIndeks].fPrędkość[1];
 					AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
 					stPomiary[sIndeks].fDroga[1] = fDroga[1];
@@ -302,13 +321,24 @@ int main(void)
 				{
 					sIndeks = sIndeksProcesu - 1;
 					nCzas = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);
-
-					/*if (nBieżącyZegar[2] > nBieżącyZegar[3])
-						stPomiary[sIndeks].cKierunekObrotów = 1;
+					if (nPoprzedniZegar[2] > nPoprzedniZegar[3])	//poprzedni impuls na czujniku 3 wystąpił później niż na czujniku 4, czyli sa dwa kolejne impulsy na czujniku 3
+					{
+						stPomiary[sIndeks].cKierunekObrotów *= -1;	//zmień znak
+					}
 					else
-						stPomiary[sIndeks].cKierunekObrotów = -1;*/
-					stPomiary[sIndeks].fPrędkość[2] = (float)stPomiary[sIndeks].cKierunekObrotów  * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+					{
+						//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
+						nT1 = MinalCzas2(nPoprzedniZegar[2], nPoprzedniZegar[3]);			//T1 = czas między poprzednim impulsem czujnika 3 a ostatnim impulsem czujnika 4 na tej rolce,
+						nT2 = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 4 a impulsem bieżącym bieżącego czujnika 3
+						if (nT1 < nT2)
+							stPomiary[sIndeks].cKierunekObrotów = 1;
+						else
+							stPomiary[sIndeks].cKierunekObrotów = -1;
+					}
+
 					fDroga[2] += (float)stPomiary[sIndeks].cKierunekObrotów  * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 3
+					stPomiary[sIndeks].fPrędkość[2] = (float)stPomiary[sIndeks].cKierunekObrotów  * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+					stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2]) / ((float)nCzas / 1000000);
 					AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
 					stPomiary[sIndeks].fDroga[2] = fDroga[2];
 
@@ -326,13 +356,24 @@ int main(void)
 				{
 					sIndeks = sIndeksProcesu - 1;
 					nCzas = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);
-					/*if (nBieżącyZegar[3] > nBieżącyZegar[2])
-						stPomiary[sIndeks].cKierunekObrotów = 1;
+					if (nPoprzedniZegar[3] > nPoprzedniZegar[2])	//poprzedni impuls na czujniku 4 wystąpił później niż na czujniku 3, czyli sa dwa kolejne impulsy na czujniku 4
+					{
+						stPomiary[sIndeks].cKierunekObrotów *= -1;	//zmień znak
+					}
 					else
-						stPomiary[sIndeks].cKierunekObrotów = -1;*/
+					{
+						//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
+						nT1 = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 3 a impulsem bieżącym bieżącego czujnika 4
+						nT2 = MinalCzas2(nPoprzedniZegar[3], nPoprzedniZegar[2]);			//T2 = czas między poprzednim impulsem czujnika 4 a ostatnim impulsem czujnika 3 na tej rolce,
+						if (nT1 < nT2)
+							stPomiary[sIndeks].cKierunekObrotów = 1;
+						else
+							stPomiary[sIndeks].cKierunekObrotów = -1;
+					}
 
-					stPomiary[sIndeks].fPrędkość[3] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
 					fDroga[3] += (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE;	//taką drogę całkowitą w [m] pokonał wózek mierzony rolką 4
+					stPomiary[sIndeks].fPrędkość[3] = (float)stPomiary[sIndeks].cKierunekObrotów * OBWOD_ROLKI_M / ((float)nCzas / 1000000);	//średnia prędkość na bieżącym odcinku
+					stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3]) / ((float)nCzas / 1000000);
 					AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
 					stPomiary[sIndeks].fDroga[3] = fDroga[3];
 
