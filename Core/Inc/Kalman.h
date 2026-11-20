@@ -26,12 +26,12 @@
 #define WARIANCJA_PREDKOSCI	2.5f		//służy do pomiaru jakości pojedynczego pomiaru metodą Mahalanobisa
 
 uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float *fVRolki1, float *fVRolki2, float *fCzas1, float *fCzas2);
-uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void);
-uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu);
-uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie);
-uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie);
-uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie);
-uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie);
+uint8_t InicjujFiltrKalmanaPrędkościRolek7X3Z(void);
+uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X3Z(float fDeltaCzasu);
+uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie);
+uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie);
+uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie);
+uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie);
 float OdległośćMahalanobisa(float fPomiar, float fEstymata, float fWariancja);
 
 #endif /* INC_WYRZUTNIA_H_ */

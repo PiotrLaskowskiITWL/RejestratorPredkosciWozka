@@ -80,7 +80,7 @@ uint8_t cBłąd;
 uint16_t sLiczbaPomiarów;
 extern uint8_t cStatusPomiaru;
 extern uint16_t sIndeksPomiaru;		//indeksuje kolejne pomiary
-uint16_t sIndeksProcesu = 0;			//indeksuje prosessing pomiarów, gdyż możliwy jest jednoczesny pomiar wielu czujników i processing wtedy sie gubi
+uint16_t sIndeksAnalizy;			//indeksuje analize pomiarów, gdyż możliwy jest jednoczesny pomiar wielu czujników i processing wtedy sie gubi
 uint8_t cLicznikOczekiwania;
 uint32_t nCzas, nCzasPoczatkuPomiaru, nCzasBiezący, nCzasPoprzedni;
 uint32_t nCzasPetliGłównej;
@@ -93,13 +93,11 @@ float fNapięcieAku;
 float fDroga[LICZBA_CZUJNIKOW] = {0.0f};
 GPIO_PinState cStanWejścia;
 uint16_t sIndeks = 0;
-extern stEnkoder_t stEnkoder;
 uint32_t nPoprzedniZegar[LICZBA_CZUJNIKOW];
 float fPoprzedniaPrędkość[LICZBA_CZUJNIKOW];
-int8_t cKierunek[LICZBA_CZUJNIKOW];
-int8_t cPoprzedniKierunek[LICZBA_CZUJNIKOW];
+int8_t cKierunek[LICZBA_KANALOW];
+int8_t cPoprzedniKierunek[LICZBA_KANALOW];
 uint8_t cPoprzedniCzujnik[LICZBA_KANALOW];
-//uint8_t cAlgorytmDetekcjiKierunku[LICZBA_CZUJNIKOW];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -216,21 +214,23 @@ int main(void)
     	//jeżeli układ pomiarowy nie jest uzbrojony to uzbrój go, czyli inicjuj dane wejdź w gotowość na rejestrację pomiaru
     	if ((cStatusPomiaru & SP_UZBROJONY) != SP_UZBROJONY)
     	{
-    		InicjujFiltrKalmanaPrędkościRolek7X2Z();
+    		InicjujFiltrKalmanaPrędkościRolek7X3Z();
     		cBłąd = RozpocznijPomiarTimerem();
     		nCzasPoczatkuPomiaru = PobierzCzasT7();
     		cStatusPomiaru |= SP_UZBROJONY;
     		sLiczbaPomiarów = 0;
     		fMaxPrędkośćKalmana = 0.0f;
-    		stEnkoder.cKierunek[0] = 1;	//zakładamy że nowy ruch jest zawsze do przodu
-    		stEnkoder.cKierunek[1] = 1;
-    		fDroga[0] = fDroga[1] = 0.0f;
-    		stEnkoder.cOstatnioAktywnyCzujnik = 0xFF;	//brak definicji ostatniego czujnika
-    		sIndeksProcesu = sIndeksPomiaru = 0;
+    		sIndeksAnalizy = sIndeksPomiaru = 0;
     		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
     		{
+    			fDroga[n] = 0.0f;
     			fPoprzedniaPrędkość[n] = 0;				//zerowa poprzednia prędkość jest potrzebna do policzenia pierwszego przyspieszenia
+    			nPoprzedniZegar[n] = 0;
+    		}
+    		for (uint8_t n=0; n<LICZBA_KANALOW; n++)
+    		{
     			cPoprzedniKierunek[n] = cKierunek[n] = 1;	//zakładam ża początkowy kierunek jest zawsze do przodu
+    			cPoprzedniCzujnik[n] = 0;
     		}
     	}
 
@@ -239,21 +239,22 @@ int main(void)
     	if (cStatusPomiaru & SP_TRWA)
     	{
     		nCzasPetliGłównej = MinalCzas2(nCzasPoprzedni, nCzasBiezący);
-    		PredykcjaFiltraKalmanaPrędkościRolek7X2Z((float)nCzasPetliGłównej / 1000000);
+    		PredykcjaFiltraKalmanaPrędkościRolek7X3Z((float)nCzasPetliGłównej / 1000000);
     	}
     	nCzasPoprzedni = nCzasBiezący;
 
     	//=============================================================================================================================================================
     	//Jeżeli w cyklu pomiarowym pojawił się więcej niż jeden impuls, to wykonaj dodatkowy obieg pętli dla każdego impulsu, tak aby nie tracić danych
-    	if (sIndeksProcesu < sIndeksPomiaru)
+    	if (sIndeksAnalizy < sIndeksPomiaru)
     	{
-    		if (sIndeksProcesu > 0)	//indeks pomiaru jest inkrementowany po pomiarze, więc piersze dane są dla indeksu = 1
+    		if (sIndeksAnalizy > 0)	//indeks pomiaru jest inkrementowany po pomiarze, więc piersze dane są dla indeksu = 1
     		{
-    			sIndeks = sIndeksProcesu - 1;	//indeks jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar, więc trzeba odwołać się do poprzedniego elementu
-				//oblicz prędkość ostatniego pomiaru dla każdego czujnika
-				if (cStatusPomiaru & SP_POMIAR_ROLKI1)
+    			sIndeks = sIndeksAnalizy - 1;	//indeks jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar, więc trzeba odwołać się do poprzedniego elementu
+
+    			//oblicz prędkość ostatniego pomiaru dla każdego czujnika
+    			if (stPomiary[sIndeks].cAktywnyCzujnik == SP_POMIAR_CZUJNIKA1)
 				{
-					cStatusPomiaru &= ~SP_POMIAR_ROLKI1;
+					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA1;
 					if (sIndeks > 1)	//są 2 impulsy, można okreslić prędkość
 					{
 						nCzas = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);
@@ -262,10 +263,9 @@ int main(void)
 						{
 							//Zmiana kierunku obrotów objawia się na dwa sposoby:
 							//1)dwa kolejne impulsy wystąpiły na tym samym czujniku
-							//if (nPoprzedniZegar[0] > nPoprzedniZegar[1])	//poprzedni impuls na czujniku 1 wystąpił później niż na czujniku 2, czyli sa dwa kolejne impulsy na czujniku 1
-							if (cPoprzedniCzujnik[0] == SP_POMIAR_ROLKI1)
+							if (cPoprzedniCzujnik[ROLKA1] == SP_POMIAR_CZUJNIKA1)
 							{
-								cKierunek[0] *= -1;	//zmień znak
+								cKierunek[ROLKA1] *= -1;	//zmień znak
 								stPomiary[sIndeks].cAlgorytm[0] = 1;
 								fDroga[0] += 0.0f;	//przy zmianie kierunku część drogi jest w jedna stronę, część w drugą, więc statystycznie przyjmuję zerowy przyrost
 								stPomiary[sIndeks].fPrędkość[0] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
@@ -276,51 +276,51 @@ int main(void)
 								nT1 = MinalCzas2(nPoprzedniZegar[0], nPoprzedniZegar[1]);			//T1 = czas między poprzednim impulsem czujnika 1 a ostatnim impulsem czujnika 2 na tej rolce,
 								nT2 = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 2 a impulsem bieżącym bieżącego czujnika 1
 								if (nT1 < nT2)
-									cKierunek[0] = 1;
+									cKierunek[ROLKA1] = 1;
 								else
-									cKierunek[0] = -1;
+									cKierunek[ROLKA1] = -1;
 								stPomiary[sIndeks].cAlgorytm[0] = 2;
 
-								if (cKierunek[0] == cPoprzedniKierunek[0])	//czy była zmiana kierunku
+								if (cKierunek[ROLKA1] == cPoprzedniKierunek[ROLKA1])	//czy była zmiana kierunku
 								{
-									fDroga[0] += (float)cKierunek[0] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 1 [m]
-									stPomiary[sIndeks].fPrędkość[0] = (float)cKierunek[0] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+									fDroga[0] += (float)cKierunek[ROLKA1] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 1 [m]
+									stPomiary[sIndeks].fPrędkość[0] = (float)cKierunek[ROLKA1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
 								}
 								else
 									stPomiary[sIndeks].fPrędkość[0] = 0.0f;
 							}
-							cPoprzedniKierunek[0] = cKierunek[0];
+							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
 						}
 						stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0]) / fCzas;
 						fPoprzedniaPrędkość[0] = stPomiary[sIndeks].fPrędkość[0];
-						AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
+						AktulizacjaRolką1FiltraKalmanaPrędkości7X3Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
 						stPomiary[sIndeks].fDroga[0] = fDroga[0];
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
 							fMaxPrędkośćKalmana = fX[1];
 
-						stPomiary[sIndeks].cKierunekObrotów = cKierunek[0];
+						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
 						nPoprzedniZegar[0] = stPomiary[sIndeks].nZegar;
 					}
-					cPoprzedniCzujnik[0] = SP_POMIAR_ROLKI1;
+					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA1;
 				}
 
 
-				if (cStatusPomiaru & SP_POMIAR_ROLKI2)
+    			if (stPomiary[sIndeks].cAktywnyCzujnik == SP_POMIAR_CZUJNIKA2)
 				{
-					cStatusPomiaru &= ~SP_POMIAR_ROLKI2;
+					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA2;
 					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
 					{
 						nCzas = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
-						stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+						stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[ROLKA1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
 
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
-							if (cPoprzedniCzujnik[0] == SP_POMIAR_ROLKI2)
+							if (cPoprzedniCzujnik[ROLKA1] == SP_POMIAR_CZUJNIKA2)
 							{
-								cKierunek[1] *= -1;	//zmień znak
+								cKierunek[ROLKA1] *= -1;	//zmień znak
 								stPomiary[sIndeks].cAlgorytm[1] = 1;
 								fDroga[1] += 0.0f;	//przy zmianie kierunku część drogi jest w jedna stronę, część w drugą, więc statystycznie przyjmuję zerowy przyrost
 								stPomiary[sIndeks].fPrędkość[1] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
@@ -331,46 +331,47 @@ int main(void)
 								nT1 = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 1 a impulsem bieżącym bieżącego czujnika 2
 								nT2 = MinalCzas2(nPoprzedniZegar[1], nPoprzedniZegar[0]);			//T2 = czas między poprzednim impulsem czujnika 2 a ostatnim impulsem czujnika 1 na tej rolce,
 								if (nT1 < nT2)
-									cKierunek[1] = 1;
+									cKierunek[ROLKA1] = 1;
 								else
-									cKierunek[1] = -1;
+									cKierunek[ROLKA1] = -1;
 								stPomiary[sIndeks].cAlgorytm[1] = 2;
 
-								if (cKierunek[1] == cPoprzedniKierunek[1])	//czy była zmiana kierunku
+								if (cKierunek[ROLKA1] == cPoprzedniKierunek[ROLKA1])	//czy była zmiana kierunku
 								{
-									fDroga[1] += (float)cKierunek[1] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 2 [m]
-									stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+									fDroga[1] += (float)cKierunek[ROLKA1] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 2 [m]
+									stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[ROLKA1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
 								}
 							}
-							cPoprzedniKierunek[1] = cKierunek[1];
+							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
 						}
 						stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1]) / fCzas;
 						fPoprzedniaPrędkość[1] = stPomiary[sIndeks].fPrędkość[1];
-						AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
+						AktulizacjaRolką2FiltraKalmanaPrędkości7X3Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
 						stPomiary[sIndeks].fDroga[1] = fDroga[1];
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
 							fMaxPrędkośćKalmana = fX[1];
 
-						stPomiary[sIndeks].cKierunekObrotów = cKierunek[1];
+						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
 						nPoprzedniZegar[1] = stPomiary[sIndeks].nZegar;
 					}
-					cPoprzedniCzujnik[0] = SP_POMIAR_ROLKI2;
+					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA2;
 				}
 
-				if (cStatusPomiaru & SP_POMIAR_ROLKI3)
+
+    			if (stPomiary[sIndeks].cAktywnyCzujnik == SP_POMIAR_CZUJNIKA3)
 				{
-					cStatusPomiaru &= ~SP_POMIAR_ROLKI3;
+					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA3;
 					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
 					{
 						nCzas = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
-							if (cPoprzedniCzujnik[1] == SP_POMIAR_ROLKI3)
+							if (cPoprzedniCzujnik[ROLKA2] == SP_POMIAR_CZUJNIKA3)
 							{
-								cKierunek[2] *= -1;	//zmień znak
+								cKierunek[ROLKA2] *= -1;	//zmień znak
 								stPomiary[sIndeks].cAlgorytm[2] = 1;
 								fDroga[2] += 0.0f;	//przy zmianie kierunku część drogi jest w jedna stronę, część w drugą, więc statystycznie przyjmuję zerowy przyrost
 								stPomiary[sIndeks].fPrędkość[2] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
@@ -381,23 +382,24 @@ int main(void)
 								nT1 = MinalCzas2(nPoprzedniZegar[2], nPoprzedniZegar[3]);			//T1 = czas między poprzednim impulsem czujnika 3 a ostatnim impulsem czujnika 4 na tej rolce,
 								nT2 = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 4 a impulsem bieżącym bieżącego czujnika 3
 								if (nT1 < nT2)
-									cKierunek[2] = 1;
+									cKierunek[ROLKA2] = 1;
 								else
-									cKierunek[2] = -1;
+									cKierunek[ROLKA2] = -1;
 								stPomiary[sIndeks].cAlgorytm[2] = 2;
 
-								if (cKierunek[2] == cPoprzedniKierunek[2])	//czy była zmiana kierunku
+								if (cKierunek[ROLKA2] == cPoprzedniKierunek[ROLKA2])	//czy była zmiana kierunku
 								{
-									fDroga[2] += (float)cKierunek[2] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 3 [m]
-									stPomiary[sIndeks].fPrędkość[2] = (float)cKierunek[2] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+									fDroga[2] += (float)cKierunek[ROLKA2] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 3 [m]
+									stPomiary[sIndeks].fPrędkość[2] = (float)cKierunek[ROLKA2] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
 								}
 								else
 									stPomiary[sIndeks].fPrędkość[2] = 0.0f;
 							}
-							cPoprzedniKierunek[2] = cKierunek[2];
+							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
 						}
 						stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2]) / fCzas;
-						AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
+						fPoprzedniaPrędkość[2] = stPomiary[sIndeks].fPrędkość[2];
+						AktulizacjaRolką3FiltraKalmanaPrędkości7X3Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
 						stPomiary[sIndeks].fDroga[2] = fDroga[2];
 
 						//znajdź maksymalną prędkość
@@ -405,24 +407,24 @@ int main(void)
 							fMaxPrędkośćKalmana = fX[1];
 
 						nPoprzedniZegar[2] = stPomiary[sIndeks].nZegar;
-						stPomiary[sIndeks].cKierunekObrotów = cKierunek[2];
+						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
 					}
-					cPoprzedniCzujnik[1] = SP_POMIAR_ROLKI3;
+					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA3;
 				}
 
 
-				if (cStatusPomiaru & SP_POMIAR_ROLKI4)
+    			if (stPomiary[sIndeks].cAktywnyCzujnik == SP_POMIAR_CZUJNIKA4)
 				{
-					cStatusPomiaru &= ~SP_POMIAR_ROLKI4;
+					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA4;
 					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
 					{
 						nCzas = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
-							if (cPoprzedniCzujnik[1] == SP_POMIAR_ROLKI4)
+							if (cPoprzedniCzujnik[ROLKA2] == SP_POMIAR_CZUJNIKA4)
 							{
-								cKierunek[3] *= -1;	//zmień znak
+								cKierunek[ROLKA2] *= -1;	//zmień znak
 								stPomiary[sIndeks].cAlgorytm[3] = 1;
 								fDroga[3] += 0.0f;	//przy zmianie kierunku część drogi jest w jedna stronę, część w drugą, więc statystycznie przyjmuję zerowy przyrost
 								stPomiary[sIndeks].fPrędkość[3] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
@@ -433,23 +435,24 @@ int main(void)
 								nT1 = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 3 a impulsem bieżącym bieżącego czujnika 4
 								nT2 = MinalCzas2(nPoprzedniZegar[3], nPoprzedniZegar[2]);			//T2 = czas między poprzednim impulsem czujnika 4 a ostatnim impulsem czujnika 3 na tej rolce,
 								if (nT1 < nT2)
-									cKierunek[3] = 1;
+									cKierunek[ROLKA2] = 1;
 								else
-									cKierunek[3] = -1;
+									cKierunek[ROLKA2] = -1;
 								stPomiary[sIndeks].cAlgorytm[3] = 2;
 
-								if (cKierunek[3] == cPoprzedniKierunek[3])	//czy była zmiana kierunku
+								if (cKierunek[ROLKA2] == cPoprzedniKierunek[ROLKA2])	//czy była zmiana kierunku
 								{
-									fDroga[3] += (float)cKierunek[3] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 4 [m]
-									stPomiary[sIndeks].fPrędkość[3] = (float)cKierunek[3] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+									fDroga[3] += (float)cKierunek[ROLKA2] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 4 [m]
+									stPomiary[sIndeks].fPrędkość[3] = (float)cKierunek[ROLKA2] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
 								}
 								else
 									stPomiary[sIndeks].fPrędkość[3] = 0.0f;
 							}
-							cPoprzedniKierunek[3] = cKierunek[3];
+							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
 						}
 						stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3]) / fCzas;
-						AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
+						fPoprzedniaPrędkość[3] = stPomiary[sIndeks].fPrędkość[3];
+						AktulizacjaRolką4FiltraKalmanaPrędkości7X3Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
 						stPomiary[sIndeks].fDroga[3] = fDroga[3];
 
 						//znajdź maksymalną prędkość
@@ -457,9 +460,9 @@ int main(void)
 							fMaxPrędkośćKalmana = fX[1];
 
 						nPoprzedniZegar[3] = stPomiary[sIndeks].nZegar;
-						stPomiary[sIndeks].cKierunekObrotów = cKierunek[3];
+						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
 					}
-					cPoprzedniCzujnik[1] = SP_POMIAR_ROLKI4;
+					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA4;
 				}
 
 				//=============================================================================================================================================================
@@ -477,10 +480,7 @@ int main(void)
 				{
 					//oblicz liczbę pomiarów
 					float fMaxPrędkość = 0;
-					if (sIndeksProcesu < ROZMIAR_BUF_POMIAROW)
-						sLiczbaPomiarów = sIndeksProcesu;
-					else
-						sLiczbaPomiarów = ROZMIAR_BUF_POMIAROW;
+					sLiczbaPomiarów = sIndeksAnalizy;
 					fWspSkaliX = (float)OLED_SZEROKOSC / sLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
 
 					//znajdź największą prędkość aby obliczyć współczynnik skalowania wykresu w Y
@@ -551,15 +551,16 @@ int main(void)
 					 }
 
 					 //rysuj kierunek obrotu
-					 sprintf(cBuforNapisów, "k: %d", stPomiary[sIndeks].cKierunekObrotów);
+					 sprintf(cBuforNapisów, "k: %+d %+d", stPomiary[sIndeks].cKierunekObrotów[ROLKA1], stPomiary[sIndeks].cKierunekObrotów[ROLKA2]);
 					 OLED_RysujNapis(cBuforNapisów, 60, 0, &Font_6x8);
-					 sprintf(cBuforNapisów, "t: %ld", nCzasPetliGłównej);
-					 OLED_RysujNapis(cBuforNapisów, 60, 15, &Font_6x8);
+					 //sprintf(cBuforNapisów, "t: %ld", nCzasPetliGłównej);
+					 //OLED_RysujNapis(cBuforNapisów, 60, 15, &Font_6x8);
 					 OLED_OdswiezEkran();
 				}
-    		}		//koniec warunku if (sIndeksProcesu > 0)
-			sIndeksProcesu++;
-    	}	//koniec warunku if (sIndeksProcesu < sIndeksPomiaru)
+    		}		//koniec warunku if (sIndeksAnalizy > 0)
+    		if (sIndeksAnalizy < ROZMIAR_BUF_POMIAROW)
+    			sIndeksAnalizy++;
+    	}	//koniec warunku if (sIndeksAnalizy < sIndeksPomiaru)
 
 		  //koniec pomiaru, zapisz na kartę i wyślij telemetrię
 		  if (cStatusPomiaru & SP_GOTOWY)

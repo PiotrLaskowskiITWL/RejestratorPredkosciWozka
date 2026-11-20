@@ -64,6 +64,8 @@ void Error_Handler(void);
 #define D_C_Pin GPIO_PIN_6
 #define D_C_GPIO_Port GPIOB
 
+
+
 /* USER CODE BEGIN Private defines */
 #define NUMER_WERSJI_REPO		26		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
@@ -87,7 +89,8 @@ void Error_Handler(void);
 #define LICZBA_POMIAROW_DO_ZAPISU	10	//musi być przynajmniej tyle pomiarów aby zarejestrowało dane
 #define MAX_PREDKOSC			100	//teoretyczna maksymalna prędkość [m/s] z jaką możemy wyobrazić sobie pracę
 #define MIN_CZAS				(1000000 * OBWOD_ROLKI_M / (MAX_PREDKOSC * MAGNESOW_NA_ROLCE))	//minimalny czas jaki mozna zarejestrować [us]
-
+#define ROLKA1					0
+#define ROLKA2					1
 #define WYSOKOSC_ZERA_WYKRESU	52
 
 //znaczenia bitów zmiennej cStatusPomiaru
@@ -95,10 +98,10 @@ void Error_Handler(void);
 #define SP_TRWA					0x02	//pojawiły się impulsy, które rozpoczeły pomiar, bez nich nie uruchomi się timeout kończący
 #define SP_NOWY_POMIAR			0x04	//pojawił się nowy impuls, więc resetuj timeout i czyść bit przy każdym resecie. Ciągły strumień bitów wydłuża pomiar aż do zapełnienia zmiennej
 #define SP_GOTOWY				0x08	//wystąpił timeout po tym jak zaczęły przychodzić impulsy
-#define SP_POMIAR_ROLKI1		0x10	//pojawił się nowy impuls od rolki 1
-#define SP_POMIAR_ROLKI2		0x20	//pojawił się nowy impuls od rolki 2
-#define SP_POMIAR_ROLKI3		0x40	//pojawił się nowy impuls od rolki 3
-#define SP_POMIAR_ROLKI4		0x80	//pojawił się nowy impuls od rolki 4
+#define SP_POMIAR_CZUJNIKA1		0x10	//pojawił się nowy impuls od czujnika 1
+#define SP_POMIAR_CZUJNIKA2		0x20	//pojawił się nowy impuls od czujnika 2
+#define SP_POMIAR_CZUJNIKA3		0x40	//pojawił się nowy impuls od czujnika 3
+#define SP_POMIAR_CZUJNIKA4		0x80	//pojawił się nowy impuls od czujnika 4
 
 typedef struct
 {
@@ -112,8 +115,8 @@ typedef struct
 	float fKalmanPrzyspieszenie;//przyspieszenie wózka estymowane przez FK [m/s^2]
 	float fBłądDrogi[LICZBA_CZUJNIKOW];			//poślizg rolki 1 względem estymowanej drogi [m]
 	float fOdlMahalanobisaV[LICZBA_CZUJNIKOW];	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
-	int8_t cKierunekObrotów;			//kierunek -1..1 pary czujników 1 i 2
-	uint16_t cAlgorytm[LICZBA_CZUJNIKOW];
+	int8_t cKierunekObrotów[LICZBA_KANALOW];			//kierunek -1..1 pary czujników 1 i 2
+	uint8_t cAlgorytm[LICZBA_CZUJNIKOW];
 } stPomiary_t;
 /* USER CODE END Private defines */
 

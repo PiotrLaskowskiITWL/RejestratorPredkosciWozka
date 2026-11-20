@@ -54,11 +54,13 @@ uint8_t RozpocznijPomiarTimerem(void)
 	//wyczyść dane
 	for (uint16_t n=0; n<ROZMIAR_BUF_POMIAROW; n++)
 	{
-		//stPomiary1[n].nZegar = 0;
+		stPomiary[n].nZegar = 0;
 		stPomiary[n].fKalmanDroga = 0.0f;
 		stPomiary[n].fKalmanPredkość = 0.0f;
 		stPomiary[n].fKalmanPrzyspieszenie = 0.0f;
-		stPomiary[n].cKierunekObrotów = 0;
+		stPomiary[n].cKierunekObrotów[0] = 0;
+		stPomiary[n].cKierunekObrotów[1] = 0;
+		stPomiary[n].cAktywnyCzujnik = 0;
 
 		for (uint16_t x=0; x<LICZBA_CZUJNIKOW; x++)
 		{
@@ -67,6 +69,7 @@ uint8_t RozpocznijPomiarTimerem(void)
 			stPomiary[n].fPrędkość[x] = 0.0f;
 			stPomiary[n].fPrzyspieszenie[x] = 0.0f;
 			stPomiary[n].fOdlMahalanobisaV[x] = 0.0f;
+			stPomiary[n].cAlgorytm[x] = 0;
 		}
 	}
 	sIndeksPomiaru = 0;
@@ -106,8 +109,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
 		{
 			stPomiary[sIndeksPomiaru].nZegar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_ROLKI1;
-			cStatusPomiaru |= SP_POMIAR_ROLKI1;			//pojawił się nowy impuls od rolki 1
+			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_CZUJNIKA1;
+			cStatusPomiaru |= SP_POMIAR_CZUJNIKA1;			//pojawił się nowy impuls od rolki 1
 			sIndeksPomiaru++;
 			if (sIndeksPomiaru == ROZMIAR_BUF_POMIAROW)
 			{
@@ -119,8 +122,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
 		{
 			stPomiary[sIndeksPomiaru].nZegar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_ROLKI2;
-			cStatusPomiaru |= SP_POMIAR_ROLKI2;		//pojawił się nowy impuls od rolki 2
+			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_CZUJNIKA2;
+			cStatusPomiaru |= SP_POMIAR_CZUJNIKA2;		//pojawił się nowy impuls od rolki 2
 			sIndeksPomiaru++;
 			if (sIndeksPomiaru == ROZMIAR_BUF_POMIAROW)
 			{
@@ -132,8 +135,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
 		{
 			stPomiary[sIndeksPomiaru].nZegar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
-			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_ROLKI3;
-			cStatusPomiaru |= SP_POMIAR_ROLKI3;		//pojawił się nowy impuls od rolki 3
+			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_CZUJNIKA3;
+			cStatusPomiaru |= SP_POMIAR_CZUJNIKA3;		//pojawił się nowy impuls od rolki 3
 			sIndeksPomiaru++;
 			if (sIndeksPomiaru == ROZMIAR_BUF_POMIAROW)
 			{
@@ -145,8 +148,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4)
 		{
 			stPomiary[sIndeksPomiaru].nZegar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
-			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_ROLKI4;
-			cStatusPomiaru |= SP_POMIAR_ROLKI4;		//pojawił się nowy impuls od rolki 4
+			stPomiary[sIndeksPomiaru].cAktywnyCzujnik = SP_POMIAR_CZUJNIKA4;
+			cStatusPomiaru |= SP_POMIAR_CZUJNIKA4;		//pojawił się nowy impuls od rolki 4
 			sIndeksPomiaru++;
 			if (sIndeksPomiaru == ROZMIAR_BUF_POMIAROW)
 			{

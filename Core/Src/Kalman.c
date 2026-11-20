@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 // Filtra Kalmana mierzący prędkości wózka wyrzutni z 4 rolek
-// Zasilany pomiarami drogi i predkości rolek wylicza drogę, prędkość, przyspieszenie oraz błędy (poślizgi) każdej z rolek
+// Zasilany pomiarami drogi, predkości i rzyspieszenia rolek wylicza drogę, prędkość, przyspieszenie oraz błędy drogi (poślizgi) każdej z rolek
 //
 // Autor: Piotr Laskowski
 // (c) ITWL 2026
@@ -116,7 +116,7 @@ uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float 
 // Parametry: brak
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
+uint8_t InicjujFiltrKalmanaPrędkościRolek7X3Z(void)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -241,7 +241,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 // Zwraca: kod błędu
 // Czas wykonania: 558 us na 24 MHz, 145 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
+uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X3Z(float fDeltaCzasu)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -304,7 +304,7 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
+uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -389,7 +389,7 @@ uint8_t AktulizacjaRolką1FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Zwraca: kod błędu
 // Czas wykonania: 748 us na 24 MHz, 190 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
+uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -474,7 +474,7 @@ uint8_t AktulizacjaRolką2FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
+uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
@@ -559,7 +559,7 @@ uint8_t AktulizacjaRolką3FiltraKalmanaPrędkości7X2Z(float fDroga, float fPred
 // Parametry: fPredkość - prędkość odczytana z rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X2Z(float fDroga, float fPredkość, float fPrzyspieszenie)
+uint8_t AktulizacjaRolką4FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
 {
 	uint8_t cBłąd = BLAD_OK;
 
