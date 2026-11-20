@@ -167,7 +167,7 @@ uint8_t InicjujFiltrKalmanaPrędkościRolek7X2Z(void)
 	//z danych czujnika wysokości więc korelacja istnieje ale na razie nie potrafię jej obliczyć
 	fR[0][0] = WARIANCJA_POMIARU_DROGI;	//wariancja statycznego pomiaru drogi rolki 1 [m^2]
 	fR[1][1] = WARIANCJA_POMIARU_PREDKOSCI;	//wariancja statycznego pomiaru prędkości rolki 1 [m^2/s^2]
-	fR[2][2] = WARIANCJA_POMIARU_PRYSPIESZENIA;
+	fR[2][2] = WARIANCJA_POMIARU_PRZYSPIESZENIA;
 	arm_mat_init_f32(&mR, KPOM, KPOM, &fR[0][0]);
 
 	//początkowa wariancja predykcji
@@ -274,15 +274,15 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X2Z(float fDeltaCzasu)
 	fQ[2][2] = powf(fOkresPetli, 2) 	 * WARIANCJA_ZRYWUL;*/
 
 	//proces modelowy białego szumu
-	fQ[0][0] = powf(fOkresPetli, 5) / 20 * WARIANCJA_ZRYWUL;
-	fQ[0][1] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWUL;
-	fQ[0][2] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWUL;
-	fQ[1][0] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWUL;
-	fQ[1][1] = powf(fOkresPetli, 3) / 3  * WARIANCJA_ZRYWUL;
-	fQ[1][2] = powf(fOkresPetli, 2) / 2  * WARIANCJA_ZRYWUL;
-	fQ[2][0] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWUL;
-	fQ[2][1] = powf(fOkresPetli, 4) / 2  * WARIANCJA_ZRYWUL;
-	fQ[2][2] = powf(fOkresPetli, 1) / 1	 * WARIANCJA_ZRYWUL;
+	fQ[0][0] = powf(fOkresPetli, 5) / 20 * WARIANCJA_ZRYWU;
+	fQ[0][1] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWU;
+	fQ[0][2] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWU;
+	fQ[1][0] = powf(fOkresPetli, 4) / 8  * WARIANCJA_ZRYWU;
+	fQ[1][1] = powf(fOkresPetli, 3) / 3  * WARIANCJA_ZRYWU;
+	fQ[1][2] = powf(fOkresPetli, 2) / 2  * WARIANCJA_ZRYWU;
+	fQ[2][0] = powf(fOkresPetli, 3) / 6  * WARIANCJA_ZRYWU;
+	fQ[2][1] = powf(fOkresPetli, 4) / 2  * WARIANCJA_ZRYWU;
+	fQ[2][2] = powf(fOkresPetli, 1) / 1	 * WARIANCJA_ZRYWU;
 
 	fQ[3][3] = fOkresPetli * WARIANCJA_POSLIZGU;
 	fQ[4][4] = fOkresPetli * WARIANCJA_POSLIZGU;

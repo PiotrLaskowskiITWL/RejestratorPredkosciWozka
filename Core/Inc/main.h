@@ -67,15 +67,16 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 #define NUMER_WERSJI_REPO		26		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
-#define ROZMIAR_BUF_POMIAROW	1000
+#define ROZMIAR_BUF_POMIAROW	800
 #define LICZBA_CZUJNIKOW		4		//liczba wejść czujnikiów
 #define LICZBA_KANALOW			2		//liczba kanałów pomiarowych. Każdy kanał składa się z 2 czujników
+#define MAGNESOW_NA_ROLCE		6U
 #define	DROGA_CALKOWITA			9.500f	//długość bieżni wyrzutni [m]
 #define	DROGA_ROZPEDZANIA		7.500f	//odcinek wyrzutni na której rozpędza się BSP [m]
 #define OBWOD_ROLKI_M			0.2235f	//droga jednego obrotu rolki [m]
+#define ODCINEK_ROLKI			(OBWOD_ROLKI_M / MAGNESOW_NA_ROLCE)
 #define PRZYSP_STARTOWE			13.0f	//12-15 m/s^2, impuls startowy do 20 m/s^2
 #define PRZYSP_HAMOWANIA		0.0f
-#define MAGNESOW_NA_ROLCE		6U
 #define LICZBA_SYMULACJI		(MAGNESOW_NA_ROLCE * (uint16_t)(DROGA_CALKOWITA / OBWOD_ROLKI_M))
 #define SKOK_X_WYKRESU			(DISP_X_SIZE / LICZBA_POMIAROW)
 #define MASA_BSP				78.0f	//masa BSP [kg]
@@ -112,6 +113,7 @@ typedef struct
 	float fBłądDrogi[LICZBA_CZUJNIKOW];			//poślizg rolki 1 względem estymowanej drogi [m]
 	float fOdlMahalanobisaV[LICZBA_CZUJNIKOW];	//odległość pomiaru prędkości czujnika 1 wyrażona w odchyleniach standardowych od jego estymaty
 	int8_t cKierunekObrotów;			//kierunek -1..1 pary czujników 1 i 2
+	uint16_t cAlgorytm[LICZBA_CZUJNIKOW];
 } stPomiary_t;
 /* USER CODE END Private defines */
 
