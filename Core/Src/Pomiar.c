@@ -10,17 +10,14 @@
 #include "Czas.h"
 #include "main.h"
 #include "KodyBledow.h"
-#include "Enkoder.h"
 
 
-extern stEnkoder_t stEnkoder;
+
 extern TIM_HandleTypeDef htim2;
 extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
-uint16_t sIndeksPomiaru;
-//uint8_t cPoprzedniPomiar[LICZBA_KANALOW];
+uint16_t sIndeksPomiaru = 0;
 uint8_t cStatusPomiaru;
-extern uint32_t nCzasPoczatkuPomiaru;
-
+extern uint32_t nCzasOstatniegoPomiaru;
 
 
 
@@ -160,6 +157,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 		//dowolny pomiar resetuje timeout kończący pomiar oraz ustawia flagi nowych danych
 		cStatusPomiaru |= SP_NOWY_POMIAR | SP_TRWA;
-		nCzasPoczatkuPomiaru = PobierzCzasT7();
+		nCzasOstatniegoPomiaru = PobierzCzasT7();
 	}
 }
