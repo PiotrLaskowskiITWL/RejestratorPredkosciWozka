@@ -36,6 +36,7 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 	{
 		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n, stPomiary + n);
 		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
+		HAL_Delay(100);	//opóźnienie w wysyłce danych ma zapobiegać zapełnieniu się bufora w terminalu	od 80ms zaczyna byc OK
 	}
 	return cBłąd;
 }

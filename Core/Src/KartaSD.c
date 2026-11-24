@@ -17,8 +17,70 @@ ALIGN_32BYTES (uint32_t fx_sd_media_memory[FX_STM32_SD_DEFAULT_SECTOR_SIZE / siz
 extern SD_HandleTypeDef hsd1;
 extern char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
 extern uint16_t sLiczbaPomiarów;
-FX_MEDIA        sdio_disk;
-FX_FILE         fx_file;
+FX_MEDIA sdio_disk;
+FX_FILE fx_file;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Funkcja zarządza procesem inicjalizacji karty i FAT-u
+// Parametry: brak
+// Zwraca: kod błędu
+////////////////////////////////////////////////////////////////////////////////
+uint8_t ObsługaKartySD(void)
+{
+	uint8_t cBłąd = BLAD_OK;
+	UINT nStatus;
+
+	//sprawdź czy karta jest obecna w gnieźdze (stan styków gniazda karty)
+	cBłąd = CzyKartaObecna();
+	if (cBłąd)
+	{
+		cStatusKarty = 0;	//czyść wszystkie flagi inicjalizacji
+		//sdio_disk = NULL;
+		return cBłąd;
+	}
+
+	//sprawdź czy jest zainicjowny sterownik karty
+	if ((cStatusKarty & STATSD_ZAINICJOWANO) != STATSD_ZAINICJOWANO)
+	{
+		hsd1.Instance = SDMMC1;
+		hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
+		hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
+		hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
+		hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
+		hsd1.Init.ClockDiv = 0;
+		cBłąd = HAL_SD_Init(&hsd1);
+		if (cBłąd)
+		{
+			HAL_SD_DeInit(&hsd1);
+			return cBłąd;
+		}
+		cStatusKarty = STATSD_ZAINICJOWANO;
+	}
+
+	//sprawdź czy FAT jest otwarty
+	if ((cStatusKarty & STATSD_MEDIA_OTWARTE) != STATSD_MEDIA_OTWARTE)
+	{
+		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
+		if (nStatus)
+		{
+			if (nStatus != FX_PTR_ERROR)		//nie traktuj tego jako błąd. Struktura jest statyczna więc raz zainicjowana istnieje cały czas
+				return BLAD_OTWARCIA_KARTY;
+		}
+		cStatusKarty |= STATSD_MEDIA_OTWARTE;
+	}
+
+	//Odczytaj indeks ostatniego pomiaru
+	if ((cStatusKarty & STATSD_ODCZTANY_INDEKS) != STATSD_ODCZTANY_INDEKS)
+	{
+		cBłąd = CzytajIndeksPomiaruZKarty(&sLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numerację i nie nadpisywać swieżych pomiarów
+		if (cBłąd)
+			return cBłąd;
+		cStatusKarty |= STATSD_ODCZTANY_INDEKS;
+	}
+
+	return cBłąd;
+}
 
 
 
@@ -32,7 +94,9 @@ uint8_t CzyKartaObecna(void)
 	uint8_t cBłąd = BLAD_OK;
 
 	if (HAL_GPIO_ReadPin(CD_GPIO_Port, CD_Pin) == GPIO_PIN_SET)
+	{
 		cBłąd = BLAD_BRAK_KARTY;
+	}
 	return cBłąd;
 }
 
@@ -50,34 +114,8 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 	UINT nStatus;
 	int nRozmiar;
 
-	cBłąd = CzyKartaObecna();
-	if (cBłąd)
-	{
-		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
-		return cBłąd;
-	}
-	else	//jeżeli karta jest to sprawdź czy nie została przed chwilę włożona
-	{
-		if (cStatusKarty == STATSD_BRAK_KARTY)
-		{
-			hsd1.Instance = SDMMC1;
-			hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
-			hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
-			hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
-			hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-			hsd1.Init.ClockDiv = 0;
-			HAL_SD_Init(&hsd1);
-			cStatusKarty &= ~STATSD_BRAK_KARTY;
-		}
-	}
-
-	if (cStatusKarty != STATSD_MEDIA_OTWARTE)
-	{
-		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
-		if (nStatus)
-			return BLAD_OTWARCIA_KARTY;
-		cStatusKarty = STATSD_MEDIA_OTWARTE;
-	}
+	if ((cStatusKarty & STATSD_MEDIA_OTWARTE) != STATSD_MEDIA_OTWARTE)
+		return BLAD_ZAPISU_KARTY;
 
 	sprintf(cBuforNapisów, "Pomiary%03d.csv", sLicznikPomiarow++);
 	if (sLicznikPomiarow > 999)
@@ -120,13 +158,7 @@ uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary)
 
 	nStatus = fx_media_flush(&sdio_disk);
 	if (nStatus)
-		return BLAD_ZAPISU_KARTY;
-
-	/*nStatus =  fx_media_close(&sdio_disk);
-	if (nStatus)
 		cBłąd = BLAD_ZAPISU_KARTY;
-	else
-		cStatusKarty = 0;	//karta nie jest już dłużej zamontowana*/
 	return cBłąd;
 }
 
@@ -144,20 +176,8 @@ uint8_t ZapiszIndeksPomiaruNaKarte(uint16_t sIndeksPomiaru)
 	UINT nStatus;
 	int nRozmiar;
 
-	cBłąd = CzyKartaObecna();
-	if (cBłąd)
-	{
-		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
-		return BLAD_BRAK_KARTY;
-	}
-
-	if (cStatusKarty != STATSD_MEDIA_OTWARTE)
-	{
-		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
-		if (nStatus)
-			return BLAD_OTWARCIA_KARTY;
-		cStatusKarty = STATSD_MEDIA_OTWARTE;
-	}
+	if ((cStatusKarty & STATSD_MEDIA_OTWARTE) != STATSD_MEDIA_OTWARTE)
+		return BLAD_OTWARCIA_KARTY;
 
 	//Gdy nie ma pliku to go utwórz. Jeżeli istnieje, to funkcja zwraca kod błędu FX_ALREADY_CREATED, więc nie traktuję tego jako błąd
 	nStatus = fx_file_create(&sdio_disk, "IndeksPomiaru.txt");
@@ -203,24 +223,20 @@ uint8_t CzytajIndeksPomiaruZKarty(uint16_t *sIndeksPomiaru)
 	UINT nStatus;
 	int nRozmiar;
 
-	cBłąd = CzyKartaObecna();
-	if (cBłąd)
-	{
-		cStatusKarty = STATSD_BRAK_KARTY;	//wyjęta karta nie jest zamontowana, nawet jeżeli wcześniej była
-		return BLAD_BRAK_KARTY;
-	}
-
-	if (cStatusKarty != STATSD_MEDIA_OTWARTE)
-	{
-		nStatus = fx_media_open(&sdio_disk, FX_SD_VOLUME_NAME, fx_stm32_sd_driver, (VOID *)FX_NULL, (VOID *) fx_sd_media_memory, sizeof(fx_sd_media_memory));
-		if (nStatus)
-			return BLAD_OTWARCIA_KARTY;
-		cStatusKarty = STATSD_MEDIA_OTWARTE;
-	}
+	if ((cStatusKarty & STATSD_MEDIA_OTWARTE) != STATSD_MEDIA_OTWARTE)
+		return BLAD_OTWARCIA_KARTY;
 
 	nStatus = fx_file_open(&sdio_disk, &fx_file, "IndeksPomiaru.txt", FX_OPEN_FOR_WRITE);
 	if (nStatus)
-		return BLAD_OTWARCIA_KARTY;
+	{
+		if (nStatus == FX_NOT_FOUND)
+		{
+			*sIndeksPomiaru = 0;
+			return BLAD_OK;			//jeżeli pliku z indeksem nie ma to też jest OK
+		}
+		else
+			return BLAD_OTWARCIA_KARTY;
+	}
 
 	nStatus = fx_file_seek(&fx_file, 0);
 	if (nStatus)
@@ -275,7 +291,7 @@ int FormatujNagłówekDanych(char *cBufor)
 //  *stPomiary - wskaźnik na tablicę struktur danych pomiarowych
 // Zwraca: ilość znaków nagłówka
 ////////////////////////////////////////////////////////////////////////////////
-int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
+int FormatujDanePomiarowe(char *cBufor, uint16_t sIndeks, stPomiary_t *stPomiary)
 {
 	char *cZnak;
 	int nRozmiar;
@@ -301,7 +317,7 @@ int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary)
 	//	nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %d\t %d\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n",
 	//						        Nr   timer IDcz kie1 kie2 Droga1 Droga2 Droga3 Droga4 v1     v2     v3     v4     a1     a2     a3     a4     kL     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
 		nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n",
-				cIndeks, stPomiary->nZegar, cOpisCzujnika, stPomiary->cKierunekObrotów[0], stPomiary->cKierunekObrotów[1],
+				sIndeks, stPomiary->nZegar, cOpisCzujnika, stPomiary->cKierunekObrotów[0], stPomiary->cKierunekObrotów[1],
 				//stPomiary->cAlgorytm[0], stPomiary->cAlgorytm[1], stPomiary->cAlgorytm[2], stPomiary->cAlgorytm[3],
 				stPomiary->fDroga[0], stPomiary->fDroga[1], stPomiary->fDroga[2], stPomiary->fDroga[3],
 				stPomiary->fPrędkość[0], stPomiary->fPrędkość[1], stPomiary->fPrędkość[2], stPomiary->fPrędkość[3],

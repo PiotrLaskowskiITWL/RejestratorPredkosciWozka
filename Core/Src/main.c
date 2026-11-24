@@ -74,7 +74,7 @@ extern const uint8_t logo_ITWL[];
 extern const int logo_ITWL_width;
 extern const int logo_ITWL_height;
 char cBuforNapisów[ROZMIAR_BUF_NAPISOW];	//zmienna do drukowania napisów funkcją sprintf()
-stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
+extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
 uint8_t cBłąd;
 uint16_t sLiczbaPomiarów = 0;
 extern uint8_t cStatusPomiaru;
@@ -186,7 +186,6 @@ int main(void)
     OLED_RysujNapis(cBuforNapisów, 0, 54, &Font_7x10);
 
     OLED_OdswiezEkran();
-	CzytajIndeksPomiaruZKarty(&sLicznikPomiarow);	//odczytaj indeks ostatnio zapisywanego pomiaru, po to aby bez względu na wyłączanie zasilnia kontynuować numerację i nie nadpisywać swieżych pomiarów
     OLED_CzyśćBuforEkranu();
     while (1)
     {
@@ -205,8 +204,11 @@ int main(void)
     	float fWspSkaliY;	//tyle m/s na wysokości ekranu
     	float fWspSkaliX;
 
-
-    	cStanWejścia = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);	//czujnik 2 to PA1
+    	//zaświeć LED przy aktywacji dowolnego czujnika
+    	cStanWejścia  = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);	//czujnik 1 to PA0
+    	cStanWejścia &= HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);	//czujnik 2 to PA1
+    	cStanWejścia &= HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2);	//czujnik 3 to PA2
+    	cStanWejścia &= HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3);	//czujnik 4 to PA3
     	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, !cStanWejścia);
 
     	//jeżeli układ pomiarowy nie jest uzbrojony to uzbrój go, czyli inicjuj dane wejdź w gotowość na rejestrację pomiaru
@@ -218,9 +220,9 @@ int main(void)
     		fMaxPrędkośćKalmana = 0.0f;
     		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
     		{
-    			fDroga[n] = 0.0f;
+    			fDroga[n] = -0.5f * ODCINEK_ROLKI;		//wstępne położenie rolki względem czujnika jest w zakresie od 0 do 1, średnio 0,5 odległosci między magnesami więc skompenuj pierwszy, niepełny pomiar połową ujemnej drogi
     			fPoprzedniaPrędkość[n] = 0;				//zerowa poprzednia prędkość jest potrzebna do policzenia pierwszego przyspieszenia
-    			nPoprzedniZegar[n] = 0;
+    			nPoprzedniZegar[n] = PobierzCzasT7();
     		}
     		for (uint8_t n=0; n<LICZBA_KANALOW; n++)
     		{
@@ -229,6 +231,7 @@ int main(void)
     		}
     	}
 
+    	ObsługaKartySD();	//cały czas sprawdzaj obecność i stan karty oraz FAT-u aby była gotowa do zapisu
     	nCzasBiezący = PobierzCzasT7();
     	//Pojawił się pierwszy impuls pomiaru wiec uznajemy proces za trwajacy i rusza predykcja filtra
     	if (cStatusPomiaru & SP_TRWA)
@@ -242,11 +245,9 @@ int main(void)
     	//Jeżeli w cyklu pomiarowym pojawił się więcej niż jeden impuls, to wykonaj dodatkowy obieg pętli dla każdego impulsu, tak aby nie tracić danych
     	if (sIndeksAnalizy < sIndeksPomiaru)
     	{
-    		if (sIndeksAnalizy > 0)	//indeks pomiaru jest inkrementowany po pomiarze, więc piersze dane są dla indeksu = 1
+    		if (sIndeksAnalizy > 0)	//indeks jest inkrementowany po pomiarze, więc pierwsze dane są dla indeksu = 1
     		{
     			sIndeks = sIndeksAnalizy - 1;	//indeks jest aktualizowany w przerwaniu CC timera i wskazuje na następny pomiar, więc trzeba odwołać się do poprzedniego elementu
-
-    			//oblicz prędkość ostatniego pomiaru dla każdego czujnika
     			if (stPomiary[sIndeks].cAktywnyCzujnik == SP_POMIAR_CZUJNIKA1)
 				{
 					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA1;
@@ -277,17 +278,15 @@ int main(void)
 									cKierunek[ROLKA1] = -1;
 								stPomiary[sIndeks].cAlgorytm[0] = 2;
 							}
-
 							if (cKierunek[ROLKA1] != cPoprzedniKierunek[ROLKA1])	//czy była zmiana kierunku
 							{
 								fDroga[0] -= (float)cPoprzedniKierunek[ROLKA1] * ODCINEK_ROLKI;	//przy zmianie kierunku cześć drogi (liczone przed nawiasem) jest ze znakiem + a cześć ze znakiem minus
 								stPomiary[sIndeks].fPrędkość[0] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
+							stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0]) / fCzas;
 						}
-						stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0]) / fCzas;
 						fPoprzedniaPrędkość[0] = stPomiary[sIndeks].fPrędkość[0];
-						AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
@@ -296,6 +295,7 @@ int main(void)
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
 						nPoprzedniZegar[0] = stPomiary[sIndeks].nZegar;
 					}
+					AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
 					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA1;
 					stPomiary[sIndeks].fDroga[0] = fDroga[0];
 				}
@@ -329,17 +329,15 @@ int main(void)
 									cKierunek[ROLKA1] = -1;
 								stPomiary[sIndeks].cAlgorytm[1] = 2;
 							}
-
 							if (cKierunek[ROLKA1] != cPoprzedniKierunek[ROLKA1])	//czy była zmiana kierunku
 							{
 								fDroga[1] -= (float)cPoprzedniKierunek[ROLKA1] * ODCINEK_ROLKI;	//przy zmianie kierunku cześć drogi (liczone przed nawiasem) jest ze znakiem + a cześć ze znakiem minus
 								stPomiary[sIndeks].fPrędkość[1] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
+							stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1]) / fCzas;
 						}
-						stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1]) / fCzas;
 						fPoprzedniaPrędkość[1] = stPomiary[sIndeks].fPrędkość[1];
-						AktulizacjaCzujnikiem2FiltraKalmanaPrędkości7X3Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
@@ -348,6 +346,7 @@ int main(void)
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
 						nPoprzedniZegar[1] = stPomiary[sIndeks].nZegar;
 					}
+					AktulizacjaCzujnikiem2FiltraKalmanaPrędkości7X3Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
 					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA2;
 					stPomiary[sIndeks].fDroga[1] = fDroga[1];
 				}
@@ -387,10 +386,9 @@ int main(void)
 								stPomiary[sIndeks].fPrędkość[2] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
+							stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2]) / fCzas;
 						}
-						stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2]) / fCzas;
 						fPoprzedniaPrędkość[2] = stPomiary[sIndeks].fPrędkość[2];
-						AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
@@ -399,6 +397,7 @@ int main(void)
 						nPoprzedniZegar[2] = stPomiary[sIndeks].nZegar;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
 					}
+					AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
 					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA3;
 					stPomiary[sIndeks].fDroga[2] = fDroga[2];
 				}
@@ -431,17 +430,15 @@ int main(void)
 									cKierunek[ROLKA2] = -1;
 								stPomiary[sIndeks].cAlgorytm[3] = 2;
 							}
-
 							if (cKierunek[ROLKA2] != cPoprzedniKierunek[ROLKA2])	//czy była zmiana kierunku
 							{
 								fDroga[3] -= (float)cPoprzedniKierunek[ROLKA2] * ODCINEK_ROLKI;	//przy zmianie kierunku cześć drogi (liczone przed nawiasem) jest ze znakiem + a cześć ze znakiem minus
 								stPomiary[sIndeks].fPrędkość[3] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
+							stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3]) / fCzas;
 						}
-						stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3]) / fCzas;
 						fPoprzedniaPrędkość[3] = stPomiary[sIndeks].fPrędkość[3];
-						AktulizacjaCzujnikiem4FiltraKalmanaPrędkości7X3Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
 
 						//znajdź maksymalną prędkość
 						if (fMaxPrędkośćKalmana < fX[1])
@@ -450,6 +447,7 @@ int main(void)
 						nPoprzedniZegar[3] = stPomiary[sIndeks].nZegar;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
 					}
+					AktulizacjaCzujnikiem4FiltraKalmanaPrędkości7X3Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
 					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA4;
 					stPomiary[sIndeks].fDroga[3] = fDroga[3];
 				}
@@ -540,8 +538,8 @@ int main(void)
 					 }
 
 					 //rysuj kierunek obrotu
-					 sprintf(cBuforNapisów, "k: %+d %+d", stPomiary[sIndeks].cKierunekObrotów[ROLKA1], stPomiary[sIndeks].cKierunekObrotów[ROLKA2]);
-					 OLED_RysujNapis(cBuforNapisów, 60, 0, &Font_6x8);
+					 //sprintf(cBuforNapisów, "k: %+d %+d", stPomiary[sIndeks].cKierunekObrotów[ROLKA1], stPomiary[sIndeks].cKierunekObrotów[ROLKA2]);
+					 //OLED_RysujNapis(cBuforNapisów, 60, 0, &Font_6x8);
 					 //sprintf(cBuforNapisów, "t: %ld", nCzasPetliGłównej);
 					 //OLED_RysujNapis(cBuforNapisów, 60, 15, &Font_6x8);
 					 OLED_OdswiezEkran();
@@ -822,7 +820,8 @@ static void MX_SDMMC1_SD_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SDMMC1_Init 2 */
-
+  extern uint8_t cStatusKarty;
+  cStatusKarty = STATSD_ZAINICJOWANO;	//zainicjowano sterownik karty SD
   /* USER CODE END SDMMC1_Init 2 */
 
 }

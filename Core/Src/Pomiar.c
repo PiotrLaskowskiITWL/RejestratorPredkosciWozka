@@ -14,7 +14,7 @@
 
 
 extern TIM_HandleTypeDef htim2;
-extern stPomiary_t stPomiary[ROZMIAR_BUF_POMIAROW];
+stPomiary_t __attribute__ ((aligned (32))) __attribute__((section(".SekcjaRAM3")))  stPomiary[ROZMIAR_BUF_POMIAROW];
 uint16_t sIndeksPomiaru = 0;
 uint8_t cStatusPomiaru;
 extern uint32_t nCzasOstatniegoPomiaru;
@@ -42,12 +42,6 @@ uint8_t RozpocznijPomiarTimerem(void)
 {
 	uint8_t cBłąd = BLAD_OK;
 
-	//HAL_TIMEx_HallSensor_Start_IT(htim2);
-	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_1);
-	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_2);
-	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_3);
-	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_4);
-
 	//wyczyść dane
 	for (uint16_t n=0; n<ROZMIAR_BUF_POMIAROW; n++)
 	{
@@ -70,6 +64,12 @@ uint8_t RozpocznijPomiarTimerem(void)
 		}
 	}
 	sIndeksPomiaru = 0;
+
+	//Włącz pomiar timerem
+	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_1);
+	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_2);
+	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_3);
+	cBłąd |= HAL_TIM_IC_Start_IT(&htim2,  TIM_CHANNEL_4);
 	return cBłąd;
 }
 

@@ -11,18 +11,21 @@
 #include "stm32u3xx_hal.h"
 #include "main.h"
 
-#define STATSD_MEDIA_OTWARTE		0x01
-#define STATSD_BRAK_KARTY			0x02
+#define STATSD_ZAINICJOWANO			0x01
+#define STATSD_MEDIA_OTWARTE		0x02
+#define STATSD_ODCZTANY_INDEKS		0x04
+
 
 #ifndef FX_SD_VOLUME_NAME
   #define FX_SD_VOLUME_NAME "STM32_SDIO_DISK"
 #endif
 
+uint8_t ObsługaKartySD(void);
 uint8_t CzyKartaObecna(void);
 uint8_t ZapiszPomiarNaKarte(stPomiary_t *stPomiary);
 uint8_t CzytajIndeksPomiaruZKarty(uint16_t *sIndeksPomiaru);
 uint8_t ZapiszIndeksPomiaruNaKarte(uint16_t sIndeksPomiaru);
 int FormatujNagłówekDanych(char *cBufor);
-int FormatujDanePomiarowe(char *cBufor, uint8_t cIndeks, stPomiary_t *stPomiary);
+int FormatujDanePomiarowe(char *cBufor, uint16_t sIndeks, stPomiary_t *stPomiary);
 
 #endif /* INC_KARTASD_H_ */

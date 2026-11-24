@@ -172,6 +172,11 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
+  .ram3 :
+  {
+  . = ALIGN(4);
+  *(.SekcjaRAM3)
+  } >RAM3
 
   .HSP_DATA_BRAM :
   {
