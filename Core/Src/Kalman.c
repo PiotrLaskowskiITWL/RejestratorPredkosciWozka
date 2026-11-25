@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <arm_math.h>
 #include "KodyBledow.h"
-#include <main.h>
+#include "Pomiar.h"
 
 
 float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
@@ -92,18 +92,18 @@ uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float 
 	fCzasLokalny1 = fCzasLokalny2 = 0;
 	for (uint16_t n=0; n<LICZBA_SYMULACJI; n++)
 	{
-		fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI_M);
+		fPredkość = sqrtf(fPredkość * fPredkość + 2 * PRZYSP_STARTOWE * OBWOD_ROLKI);
 		cBłąd = HAL_RNG_GenerateRandomNumber(&hrng, &nRrandom32);	//losuj liczbę
 		*(fVRolki1 + n) = fPredkość + (nRrandom32 & 0xFF) / 1000.0f;
-		*(fDrogaRolki1 + n) = (n + 1) * OBWOD_ROLKI_M;
-		fCzasLokalny1 += OBWOD_ROLKI_M / *(fVRolki1 + n);
+		*(fDrogaRolki1 + n) = (n + 1) * OBWOD_ROLKI;
+		fCzasLokalny1 += OBWOD_ROLKI / *(fVRolki1 + n);
 		*(fCzas1 + n) = fCzasLokalny1;
 
 
 		cBłąd = HAL_RNG_GenerateRandomNumber(&hrng, &nRrandom32);	//losuj liczbę
 		*(fVRolki2 + n) = fPredkość + (nRrandom32 & 0xFF) / 10000.0f;
-		*(fDrogaRolki2 + n) = (n + 1) * OBWOD_ROLKI_M;
-		fCzasLokalny2 += OBWOD_ROLKI_M / *(fVRolki2 + n);
+		*(fDrogaRolki2 + n) = (n + 1) * OBWOD_ROLKI;
+		fCzasLokalny2 += OBWOD_ROLKI / *(fVRolki2 + n);
 		*(fCzas2 + n) = fCzasLokalny2;
 	}
 	return cBłąd;

@@ -8,8 +8,7 @@
 #ifndef BLUETOOTH_H_
 #define BLUETOOTH_H_
 #include "stm32u3xx_hal.h"
-#include "main.h"
-
+#include "Pomiar.h"
 
 
 uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary);

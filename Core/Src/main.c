@@ -81,22 +81,30 @@ extern uint8_t cStatusPomiaru;
 extern uint16_t sIndeksPomiaru;		//indeksuje kolejne pomiary
 uint16_t sIndeksAnalizy;			//indeksuje analize pomiarów, gdyż możliwy jest jednoczesny pomiar wielu czujników i processing wtedy sie gubi
 uint8_t cLicznikOczekiwania;
-uint32_t nCzas, nCzasBiezący, nCzasPoprzedni;
+uint32_t nCzas;
+//uint32_t nCzasBiezący, nCzasPoprzedni;
 uint32_t nCzasPetliGłównej, nCzasOstatniegoPomiaru;
+
 uint32_t nT1, nT2;
 float fCzas;	//czas w sekundach
 float fMaxPrędkośćKalmana;
 extern float32_t fX[KSTAN];						//wektor stanu: 0=droga, 1=prędkość, 2=przyspieszenie, 3..6=błąd drogi rolek 1..4
 extern uint16_t sLicznikPomiarow;
 float fNapięcieAku;
-float fDroga[LICZBA_CZUJNIKOW] = {0.0f};
+float fDroga[LICZBA_CZUJNIKOW];
+float fDrogaŚrednia;
+float fPrędkośćŚrednia;
+float fPrzyspieszenieŚrednie;
+
 GPIO_PinState cStanWejścia;
 uint16_t sIndeks = 0;
-uint32_t nPoprzedniZegar[LICZBA_CZUJNIKOW];
-float fPoprzedniaPrędkość[LICZBA_CZUJNIKOW];
+uint32_t nPoprzedniZegarCzujnika[LICZBA_CZUJNIKOW];		//poprzednia wartość zegara do oceny kierunku obrotów
+uint32_t nPoprzedniZegarMagnesu[LICZBA_CZUJNIKOW][MAGNESOW_NA_ROLCE];	//poprzedni zegar dla danego magnesu potrzebny do oceny prędkości i przyspiszenia
+float fPoprzedniaPrędkość[LICZBA_CZUJNIKOW][MAGNESOW_NA_ROLCE];
 int8_t cKierunek[LICZBA_KANALOW];
 int8_t cPoprzedniKierunek[LICZBA_KANALOW];
 uint8_t cPoprzedniCzujnik[LICZBA_KANALOW];
+int8_t cIndeksMagnesu[LICZBA_CZUJNIKOW];	//indeks magnesu na każdym z czujników
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -214,15 +222,19 @@ int main(void)
     	//jeżeli układ pomiarowy nie jest uzbrojony to uzbrój go, czyli inicjuj dane wejdź w gotowość na rejestrację pomiaru
     	if ((cStatusPomiaru & SP_UZBROJONY) != SP_UZBROJONY)
     	{
-    		InicjujFiltrKalmanaPrędkościRolek7X3Z();
+    		//InicjujFiltrKalmanaPrędkościRolek7X3Z();
     		cBłąd = RozpocznijPomiarTimerem();
     		cStatusPomiaru |= SP_UZBROJONY;
     		fMaxPrędkośćKalmana = 0.0f;
     		for (uint8_t n=0; n<LICZBA_CZUJNIKOW; n++)
     		{
-    			fDroga[n] = -0.5f * ODCINEK_ROLKI;		//wstępne położenie rolki względem czujnika jest w zakresie od 0 do 1, średnio 0,5 odległosci między magnesami więc skompenuj pierwszy, niepełny pomiar połową ujemnej drogi
-    			fPoprzedniaPrędkość[n] = 0;				//zerowa poprzednia prędkość jest potrzebna do policzenia pierwszego przyspieszenia
-    			nPoprzedniZegar[n] = PobierzCzasT7();
+    			fDroga[n] = -0.5f * ODCINEK_ROLKI;		//wstępne położenie rolki względem czujnika jest w zakresie od 0 do 1, średnio 0,5 odległości między magnesami więc skompensuj pierwszy, niepełny pomiar połową ujemnej drogi
+    			for (uint8_t m=0; m<MAGNESOW_NA_ROLCE; m++)
+    			{
+    				fPoprzedniaPrędkość[n][m] = 0;				//zerowa poprzednia prędkość jest potrzebna do policzenia pierwszego przyspieszenia
+    				nPoprzedniZegarMagnesu[n][m] = PobierzCzasT7();
+    			}
+    			nPoprzedniZegarCzujnika[n] = PobierzCzasT7();
     		}
     		for (uint8_t n=0; n<LICZBA_KANALOW; n++)
     		{
@@ -232,14 +244,14 @@ int main(void)
     	}
 
     	ObsługaKartySD();	//cały czas sprawdzaj obecność i stan karty oraz FAT-u aby była gotowa do zapisu
-    	nCzasBiezący = PobierzCzasT7();
+    	/*nCzasBiezący = PobierzCzasT7();
     	//Pojawił się pierwszy impuls pomiaru wiec uznajemy proces za trwajacy i rusza predykcja filtra
     	if (cStatusPomiaru & SP_TRWA)
     	{
     		nCzasPetliGłównej = MinalCzas2(nCzasPoprzedni, nCzasBiezący);
     		PredykcjaFiltraKalmanaPrędkościRolek7X3Z((float)nCzasPetliGłównej / 1000000);
     	}
-    	nCzasPoprzedni = nCzasBiezący;
+    	nCzasPoprzedni = nCzasBiezący;*/
 
     	//=============================================================================================================================================================
     	//Jeżeli w cyklu pomiarowym pojawił się więcej niż jeden impuls, to wykonaj dodatkowy obieg pętli dla każdego impulsu, tak aby nie tracić danych
@@ -252,12 +264,12 @@ int main(void)
 				{
 					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA1;
 					fDroga[0] += (float)cKierunek[ROLKA1] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 1 [m]
+					fDrogaŚrednia = (fDrogaŚrednia + fDroga[0]) / 2;
 					if (sIndeks > 1)	//są 2 impulsy, można okreslić prędkość
 					{
-						nCzas = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);
+						nCzas = MinalCzas2(nPoprzedniZegarMagnesu[0][cIndeksMagnesu[0]], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
-						stPomiary[sIndeks].fPrędkość[0] = (float)cKierunek[ROLKA1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
-
+						stPomiary[sIndeks].fPrędkość[0] = (float)cKierunek[ROLKA1] * OBWOD_ROLKI / fCzas;	//średnia prędkość na obwodzie rolki, liczona dna każdego magnesu osobno
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
 							//Zmiana kierunku obrotów objawia się na dwa sposoby:
@@ -270,8 +282,8 @@ int main(void)
 							else
 							{
 								//2) określenie kierunku przez porównanie czasów T1 i T2, gdzie:
-								nT1 = MinalCzas2(nPoprzedniZegar[0], nPoprzedniZegar[1]);			//T1 = czas między poprzednim impulsem czujnika 1 a ostatnim impulsem czujnika 2 na tej rolce,
-								nT2 = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 2 a impulsem bieżącym bieżącego czujnika 1
+								nT1 = MinalCzas2(nPoprzedniZegarCzujnika[0], nPoprzedniZegarCzujnika[1]);			//T1 = czas między poprzednim impulsem czujnika 1 a ostatnim impulsem czujnika 2 na tej rolce,
+								nT2 = MinalCzas2(nPoprzedniZegarCzujnika[1], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 2 a impulsem bieżącym bieżącego czujnika 1
 								if (nT1 < nT2)
 									cKierunek[ROLKA1] = 1;
 								else
@@ -284,18 +296,22 @@ int main(void)
 								stPomiary[sIndeks].fPrędkość[0] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
-							stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0]) / fCzas;
+							stPomiary[sIndeks].fPrzyspieszenie[0] = (stPomiary[sIndeks].fPrędkość[0] - fPoprzedniaPrędkość[0][cIndeksMagnesu[0]]) / fCzas;
+							fPrzyspieszenieŚrednie = (fPrzyspieszenieŚrednie + stPomiary[sIndeks].fPrzyspieszenie[0]) / 2;
 						}
-						fPoprzedniaPrędkość[0] = stPomiary[sIndeks].fPrędkość[0];
-
-						//znajdź maksymalną prędkość
-						if (fMaxPrędkośćKalmana < fX[1])
-							fMaxPrędkośćKalmana = fX[1];
-
+						fPoprzedniaPrędkość[0][cIndeksMagnesu[0]] = stPomiary[sIndeks].fPrędkość[0];
+						nPoprzedniZegarCzujnika[0] = nPoprzedniZegarMagnesu[0][cIndeksMagnesu[0]] = stPomiary[sIndeks].nZegar;
+						fPrędkośćŚrednia = (fPrędkośćŚrednia + stPomiary[sIndeks].fPrędkość[0]) / 2;
+						stPomiary[sIndeks].fKalmanPredkość = fPrędkośćŚrednia;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
-						nPoprzedniZegar[0] = stPomiary[sIndeks].nZegar;
+
+						cIndeksMagnesu[0] += cKierunek[ROLKA1];
+						if (cIndeksMagnesu[0] >= MAGNESOW_NA_ROLCE)
+							cIndeksMagnesu[0] = 0;
+						if (cIndeksMagnesu[0] < 0)
+							cIndeksMagnesu[0] = MAGNESOW_NA_ROLCE - 1;
 					}
-					AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
+					//AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(fDroga[0], stPomiary[sIndeks].fPrędkość[0], stPomiary[sIndeks].fPrzyspieszenie[0]);
 					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA1;
 					stPomiary[sIndeks].fDroga[0] = fDroga[0];
 				}
@@ -305,12 +321,12 @@ int main(void)
 				{
 					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA2;
 					fDroga[1] += (float)cKierunek[ROLKA1] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 2 [m]
+					fDrogaŚrednia = (fDrogaŚrednia + fDroga[1]) / 2;
 					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
 					{
-						nCzas = MinalCzas2(nPoprzedniZegar[1], stPomiary[sIndeks].nZegar);
+						nCzas = MinalCzas2(nPoprzedniZegarMagnesu[1][cIndeksMagnesu[1]], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
-						stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[ROLKA1] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
-
+						stPomiary[sIndeks].fPrędkość[1] = (float)cKierunek[ROLKA1] * OBWOD_ROLKI / fCzas;	//średnia prędkość na obwodzie rolki, liczona dna każdego magnesu osobno
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
 							if (cPoprzedniCzujnik[ROLKA1] == SP_POMIAR_CZUJNIKA2)
@@ -321,8 +337,8 @@ int main(void)
 							else
 							{
 								//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
-								nT1 = MinalCzas2(nPoprzedniZegar[0], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 1 a impulsem bieżącym bieżącego czujnika 2
-								nT2 = MinalCzas2(nPoprzedniZegar[1], nPoprzedniZegar[0]);			//T2 = czas między poprzednim impulsem czujnika 2 a ostatnim impulsem czujnika 1 na tej rolce,
+								nT1 = MinalCzas2(nPoprzedniZegarCzujnika[0], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 1 a impulsem bieżącym bieżącego czujnika 2
+								nT2 = MinalCzas2(nPoprzedniZegarCzujnika[1], nPoprzedniZegarCzujnika[0]);			//T2 = czas między poprzednim impulsem czujnika 2 a ostatnim impulsem czujnika 1 na tej rolce,
 								if (nT1 < nT2)
 									cKierunek[ROLKA1] = 1;
 								else
@@ -335,18 +351,22 @@ int main(void)
 								stPomiary[sIndeks].fPrędkość[1] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA1] = cKierunek[ROLKA1];
-							stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1]) / fCzas;
+							stPomiary[sIndeks].fPrzyspieszenie[1] = (stPomiary[sIndeks].fPrędkość[1] - fPoprzedniaPrędkość[1][cIndeksMagnesu[1]]) / fCzas;
+							fPrzyspieszenieŚrednie = (fPrzyspieszenieŚrednie + stPomiary[sIndeks].fPrzyspieszenie[1]) / 2;
 						}
-						fPoprzedniaPrędkość[1] = stPomiary[sIndeks].fPrędkość[1];
-
-						//znajdź maksymalną prędkość
-						if (fMaxPrędkośćKalmana < fX[1])
-							fMaxPrędkośćKalmana = fX[1];
-
+						fPoprzedniaPrędkość[1][cIndeksMagnesu[1]] = stPomiary[sIndeks].fPrędkość[1];
+						nPoprzedniZegarCzujnika[1] = nPoprzedniZegarMagnesu[1][cIndeksMagnesu[1]] = stPomiary[sIndeks].nZegar;
+						fPrędkośćŚrednia = (fPrędkośćŚrednia + stPomiary[sIndeks].fPrędkość[1]) / 2;
+						stPomiary[sIndeks].fKalmanPredkość = fPrędkośćŚrednia;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA1] = cKierunek[ROLKA1];
-						nPoprzedniZegar[1] = stPomiary[sIndeks].nZegar;
+
+						cIndeksMagnesu[1] += cKierunek[ROLKA1];
+						if (cIndeksMagnesu[1] >= MAGNESOW_NA_ROLCE)
+							cIndeksMagnesu[1] = 0;
+						if (cIndeksMagnesu[1] < 0)
+							cIndeksMagnesu[1] = MAGNESOW_NA_ROLCE - 1;
 					}
-					AktulizacjaCzujnikiem2FiltraKalmanaPrędkości7X3Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
+					//AktulizacjaCzujnikiem2FiltraKalmanaPrędkości7X3Z(fDroga[1], stPomiary[sIndeks].fPrędkość[1], stPomiary[sIndeks].fPrzyspieszenie[1]);
 					cPoprzedniCzujnik[ROLKA1] = SP_POMIAR_CZUJNIKA2;
 					stPomiary[sIndeks].fDroga[1] = fDroga[1];
 				}
@@ -356,12 +376,12 @@ int main(void)
 				{
 					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA3;
 					fDroga[2] += (float)cKierunek[ROLKA2] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 1 [m]
+					fDrogaŚrednia = (fDrogaŚrednia + fDroga[2]) / 2;
 					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
 					{
-						nCzas = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);
+						nCzas = MinalCzas2(nPoprzedniZegarMagnesu[2][cIndeksMagnesu[2]], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
-						stPomiary[sIndeks].fPrędkość[2] = (float)cKierunek[ROLKA2] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
-
+						stPomiary[sIndeks].fPrędkość[2] = (float)cKierunek[ROLKA2] * OBWOD_ROLKI / fCzas;	//średnia prędkość na obwodzie rolki, liczona dna każdego magnesu osobno
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
 							if (cPoprzedniCzujnik[ROLKA2] == SP_POMIAR_CZUJNIKA3)
@@ -372,8 +392,8 @@ int main(void)
 							else
 							{
 								//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
-								nT1 = MinalCzas2(nPoprzedniZegar[2], nPoprzedniZegar[3]);			//T1 = czas między poprzednim impulsem czujnika 3 a ostatnim impulsem czujnika 4 na tej rolce,
-								nT2 = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 4 a impulsem bieżącym bieżącego czujnika 3
+								nT1 = MinalCzas2(nPoprzedniZegarCzujnika[2], nPoprzedniZegarCzujnika[3]);			//T1 = czas między poprzednim impulsem czujnika 3 a ostatnim impulsem czujnika 4 na tej rolce,
+								nT2 = MinalCzas2(nPoprzedniZegarCzujnika[3], stPomiary[sIndeks].nZegar);	//T2 = czas między ostatnim impulsem czujnika 4 a impulsem bieżącym bieżącego czujnika 3
 								if (nT1 < nT2)
 									cKierunek[ROLKA2] = 1;
 								else
@@ -386,18 +406,22 @@ int main(void)
 								stPomiary[sIndeks].fPrędkość[2] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
-							stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2]) / fCzas;
+							stPomiary[sIndeks].fPrzyspieszenie[2] = (stPomiary[sIndeks].fPrędkość[2] - fPoprzedniaPrędkość[2][cIndeksMagnesu[2]]) / fCzas;
+							fPrzyspieszenieŚrednie = (fPrzyspieszenieŚrednie + stPomiary[sIndeks].fPrzyspieszenie[2]) / 2;
 						}
-						fPoprzedniaPrędkość[2] = stPomiary[sIndeks].fPrędkość[2];
-
-						//znajdź maksymalną prędkość
-						if (fMaxPrędkośćKalmana < fX[1])
-							fMaxPrędkośćKalmana = fX[1];
-
-						nPoprzedniZegar[2] = stPomiary[sIndeks].nZegar;
+						fPoprzedniaPrędkość[2][cIndeksMagnesu[2]] = stPomiary[sIndeks].fPrędkość[2];
+						nPoprzedniZegarCzujnika[2] = nPoprzedniZegarMagnesu[2][cIndeksMagnesu[3]] = stPomiary[sIndeks].nZegar;
+						fPrędkośćŚrednia = (fPrędkośćŚrednia + stPomiary[sIndeks].fPrędkość[2]) / 2;
+						stPomiary[sIndeks].fKalmanPredkość = fPrędkośćŚrednia;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
+
+						cIndeksMagnesu[2] += cKierunek[ROLKA2];
+						if (cIndeksMagnesu[2] >= MAGNESOW_NA_ROLCE)
+							cIndeksMagnesu[2] = 0;
+						if (cIndeksMagnesu[2] < 0)
+							cIndeksMagnesu[2] = MAGNESOW_NA_ROLCE - 1;
 					}
-					AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
+					//AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(fDroga[2], stPomiary[sIndeks].fPrędkość[2], stPomiary[sIndeks].fPrzyspieszenie[2]);
 					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA3;
 					stPomiary[sIndeks].fDroga[2] = fDroga[2];
 				}
@@ -407,11 +431,12 @@ int main(void)
 				{
 					cStatusPomiaru &= ~SP_POMIAR_CZUJNIKA4;
 					fDroga[3] += (float)cKierunek[ROLKA2] * ODCINEK_ROLKI;	//całkuj drogę jaką pokonał wózek mierzony rolką 4 [m]
-					if (sIndeks > 1)	//do pomiaru prędkości musza być przynajmniej 2 impulsy
+					fDrogaŚrednia = (fDrogaŚrednia + fDroga[3]) / 2;
+					if (sIndeks > 1)	//do pomiaru prędkości muszą być przynajmniej 2 impulsy
 					{
-						nCzas = MinalCzas2(nPoprzedniZegar[3], stPomiary[sIndeks].nZegar);
+						nCzas = MinalCzas2(nPoprzedniZegarMagnesu[3][cIndeksMagnesu[3]], stPomiary[sIndeks].nZegar);
 						fCzas = (float)nCzas / 1000000;
-						stPomiary[sIndeks].fPrędkość[3] = (float)cKierunek[ROLKA2] * ODCINEK_ROLKI / fCzas;	//średnia prędkość na bieżącym odcinku
+						stPomiary[sIndeks].fPrędkość[3] = (float)cKierunek[ROLKA2] * OBWOD_ROLKI / fCzas;	//średnia prędkość na obwodzie rolki, liczona dna każdego magnesu osobno
 						if (sIndeks > 2)	//aby okreslić kierunek muszą być przechwycone co najmniej 3 impulsy
 						{
 							if (cPoprzedniCzujnik[ROLKA2] == SP_POMIAR_CZUJNIKA4)
@@ -422,8 +447,8 @@ int main(void)
 							else
 							{
 								//określenie kierunku przez porównanie czasów T1 i T2, gdzie:
-								nT1 = MinalCzas2(nPoprzedniZegar[2], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 3 a impulsem bieżącym bieżącego czujnika 4
-								nT2 = MinalCzas2(nPoprzedniZegar[3], nPoprzedniZegar[2]);			//T2 = czas między poprzednim impulsem czujnika 4 a ostatnim impulsem czujnika 3 na tej rolce,
+								nT1 = MinalCzas2(nPoprzedniZegarCzujnika[2], stPomiary[sIndeks].nZegar);	//T1 = czas między ostatnim impulsem czujnika 3 a impulsem bieżącym bieżącego czujnika 4
+								nT2 = MinalCzas2(nPoprzedniZegarCzujnika[3], nPoprzedniZegarCzujnika[2]);			//T2 = czas między poprzednim impulsem czujnika 4 a ostatnim impulsem czujnika 3 na tej rolce,
 								if (nT1 < nT2)
 									cKierunek[ROLKA2] = 1;
 								else
@@ -436,31 +461,39 @@ int main(void)
 								stPomiary[sIndeks].fPrędkość[3] = 0.0f;	//nastąpiła zmiana kierunku, więc prędkość przechodzi przez 0
 							}
 							cPoprzedniKierunek[ROLKA2] = cKierunek[ROLKA2];
-							stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3]) / fCzas;
+							stPomiary[sIndeks].fPrzyspieszenie[3] = (stPomiary[sIndeks].fPrędkość[3] - fPoprzedniaPrędkość[3][cIndeksMagnesu[3]]) / fCzas;
+							fPrzyspieszenieŚrednie = (fPrzyspieszenieŚrednie + stPomiary[sIndeks].fPrzyspieszenie[3]) / 2;
 						}
-						fPoprzedniaPrędkość[3] = stPomiary[sIndeks].fPrędkość[3];
-
-						//znajdź maksymalną prędkość
-						if (fMaxPrędkośćKalmana < fX[1])
-							fMaxPrędkośćKalmana = fX[1];
-
-						nPoprzedniZegar[3] = stPomiary[sIndeks].nZegar;
+						fPoprzedniaPrędkość[3][cIndeksMagnesu[3]] = stPomiary[sIndeks].fPrędkość[3];
+						nPoprzedniZegarCzujnika[3] = nPoprzedniZegarMagnesu[3][cIndeksMagnesu[3]] = stPomiary[sIndeks].nZegar;
+						fPrędkośćŚrednia = (fPrędkośćŚrednia + stPomiary[sIndeks].fPrędkość[3]) / 2;
+						stPomiary[sIndeks].fKalmanPredkość = fPrędkośćŚrednia;
 						stPomiary[sIndeks].cKierunekObrotów[ROLKA2] = cKierunek[ROLKA2];
+
+						cIndeksMagnesu[3] += cKierunek[ROLKA2];
+						if (cIndeksMagnesu[3] >= MAGNESOW_NA_ROLCE)
+							cIndeksMagnesu[3] = 0;
+						if (cIndeksMagnesu[3] < 0)
+							cIndeksMagnesu[3] = MAGNESOW_NA_ROLCE - 1;
 					}
-					AktulizacjaCzujnikiem4FiltraKalmanaPrędkości7X3Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
+					//AktulizacjaCzujnikiem4FiltraKalmanaPrędkości7X3Z(fDroga[3], stPomiary[sIndeks].fPrędkość[3], stPomiary[sIndeks].fPrzyspieszenie[3]);
 					cPoprzedniCzujnik[ROLKA2] = SP_POMIAR_CZUJNIKA4;
 					stPomiary[sIndeks].fDroga[3] = fDroga[3];
 				}
 
 				//=============================================================================================================================================================
 				//ustaw dane z filtra Kalmana. Nawet gdy nie ma pomiaru to wstaw dane z predykcji
-				stPomiary[sIndeks].fKalmanDroga = fX[0];
-				stPomiary[sIndeks].fKalmanPredkość = fX[1];
-				stPomiary[sIndeks].fKalmanPrzyspieszenie = fX[2];
-				stPomiary[sIndeks].fBłądDrogi[0] = fX[3];
-				stPomiary[sIndeks].fBłądDrogi[1] = fX[4];
-				stPomiary[sIndeks].fBłądDrogi[2] = fX[5];
-				stPomiary[sIndeks].fBłądDrogi[3] = fX[6];
+				//stPomiary[sIndeks].fKalmanDroga = fX[0];
+				//stPomiary[sIndeks].fKalmanPredkość = fX[1];
+				//stPomiary[sIndeks].fKalmanPrzyspieszenie = fX[2];
+				//stPomiary[sIndeks].fBłądDrogi[0] = fX[3];
+				//stPomiary[sIndeks].fBłądDrogi[1] = fX[4];
+				//stPomiary[sIndeks].fBłądDrogi[2] = fX[5];
+				//stPomiary[sIndeks].fBłądDrogi[3] = fX[6];
+
+    			stPomiary[sIndeks].fKalmanDroga = fDrogaŚrednia;
+    			stPomiary[sIndeks].fKalmanPredkość = fPrędkośćŚrednia;
+    			stPomiary[sIndeks].fKalmanPrzyspieszenie = fPrzyspieszenieŚrednie;
 
 				//przyszły nowe dane, więc przerysuj wykres
 				if (cStatusPomiaru & SP_NOWY_POMIAR)
@@ -481,8 +514,6 @@ int main(void)
 							fMaxPrędkość = stPomiary[n].fPrędkość[2];
 						if (stPomiary[n].fPrędkość[3] > fMaxPrędkość)
 							fMaxPrędkość = stPomiary[n].fPrędkość[3];
-						if (fMaxPrędkośćKalmana > fMaxPrędkość)
-							fMaxPrędkość = fMaxPrędkośćKalmana;
 					 }
 					 fWspSkaliY = (float)WYSOKOSC_ZERA_WYKRESU / (fMaxPrędkość * 1.2f);	//tyle m/s na wysokości ekranu
 
@@ -496,9 +527,9 @@ int main(void)
 					 OLED_RysujLiniePoziomą(120, 45+7, 7);				//kreska ułamka jednostki [m/s]
 
 					 //rysuj poziomą podziałkę wykresu
-					 float fMaxPredkość = (float)WYSOKOSC_ZERA_WYKRESU / fWspSkaliY;
-					 uint8_t cMaxPredkość = (uint8_t)(ceilf(fMaxPredkość) + 1.0f);
-					 cMaxPredkość &= 0xFE;		//zamień na liczbę parzystą aby uniknąć podziału nieparzystych
+					 fMaxPrędkość = (float)WYSOKOSC_ZERA_WYKRESU / fWspSkaliY;
+					 uint8_t cMaxPredkość = (uint8_t)(ceilf(fMaxPrędkość) + 1.0f);
+					 cMaxPredkość &= 0xFE;		//zamień na liczbę parzystą aby uniknąć nieokrągłego podziału liczb nieparzystych
 					 float fSkokPodziałki = (float)cMaxPredkość / LICZBA_PODZIALEK;
 					 for (uint8_t n=0; n<LICZBA_PODZIALEK; n++)
 					 {
@@ -603,14 +634,14 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE2) != HAL_OK)
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Set Flash latency before increasing MSIS
   */
-  __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_2);
+  __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_3);
 
   /** Initializes the CPU, AHB and APB buses clocks
   */
@@ -618,7 +649,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.MSISState = RCC_MSI_ON;
   RCC_OscInitStruct.MSISSource = RCC_MSI_RC0;
-  RCC_OscInitStruct.MSISDiv = RCC_MSI_DIV2;
+  RCC_OscInitStruct.MSISDiv = RCC_MSI_DIV1;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -635,7 +666,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB3CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -971,7 +1002,7 @@ static void MX_TIM7_Init(void)
 
   /* USER CODE END TIM7_Init 1 */
   htim7.Instance = TIM7;
-  htim7.Init.Prescaler = 47;
+  htim7.Init.Prescaler = 95;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim7.Init.Period = 65535;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;

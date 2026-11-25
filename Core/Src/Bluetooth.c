@@ -10,6 +10,7 @@
 #include "KartaSD.h"
 #include "KodyBledow.h"
 #include <stdio.h>
+#include "OLED.h"
 
 
 extern UART_HandleTypeDef huart1;
@@ -27,6 +28,8 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 {
 	uint8_t cBłąd = BLAD_OK;
 	int nRozmiar;
+	float fWspSkaliX = (float)OLED_SZEROKOSC / sLiczbaPomiarów;	//skaluj szerokość wykresu do bieżącej liczby pomiarów
+	uint8_t cPozX, cPoprzednieX = -1;
 
 	nRozmiar = FormatujNagłówekDanych(cBuforTelemetrii);	//nagłówek danych taki sam jak na karcie
 	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
@@ -37,6 +40,15 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n, stPomiary + n);
 		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
 		HAL_Delay(100);	//opóźnienie w wysyłce danych ma zapobiegać zapełnieniu się bufora w terminalu	od 80ms zaczyna byc OK
+
+		//rysuj pasek postepu na ekranie głównym aby zorientować się w postępie wysyłki telemetrii
+		cPozX = (uint8_t)(n * fWspSkaliX);
+		if (cPozX != cPoprzednieX)
+		{
+			OLED_RysujPiksel(cPozX, OLED_WYSOKOSC - 1, 1);
+			OLED_OdswiezEkran();
+			cPoprzednieX = cPozX;
+		}
 	}
 	return cBłąd;
 }

@@ -55,7 +55,7 @@ uint8_t RozpocznijPomiarTimerem(void)
 
 		for (uint16_t x=0; x<LICZBA_CZUJNIKOW; x++)
 		{
-			stPomiary[n].fBłądDrogi[x] = 0.0f;
+			//stPomiary[n].fBłądDrogi[x] = 0.0f;
 			stPomiary[n].fDroga[x] = 0.0f;
 			stPomiary[n].fPrędkość[x] = 0.0f;
 			stPomiary[n].fPrzyspieszenie[x] = 0.0f;

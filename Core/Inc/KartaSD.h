@@ -9,7 +9,7 @@
 #ifndef INC_KARTASD_H_
 #define INC_KARTASD_H_
 #include "stm32u3xx_hal.h"
-#include "main.h"
+#include "Pomiar.h"
 
 #define STATSD_ZAINICJOWANO			0x01
 #define STATSD_MEDIA_OTWARTE		0x02
