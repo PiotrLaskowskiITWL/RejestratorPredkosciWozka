@@ -67,7 +67,7 @@ void Error_Handler(void);
 
 
 /* USER CODE BEGIN Private defines */
-#define NUMER_WERSJI_REPO		33		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
+#define NUMER_WERSJI_REPO		34		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
 #define ROZMIAR_BUF_NAPISOW		255
 #define ROZMIAR_BUF_POMIAROW	3000
 #define LICZBA_CZUJNIKOW		4		//liczba wejść czujnikiów

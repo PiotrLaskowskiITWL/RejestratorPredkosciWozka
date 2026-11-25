@@ -554,12 +554,12 @@ int main(void)
 		  {
 			  if (sLiczbaPomiarów > LICZBA_POMIAROW_DO_ZAPISU)	//nie zapisuj bardzo krótkich pomiarów
 			  {
-				  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
 				  cBłąd = ZapiszPomiarNaKarte(stPomiary);
 				  if (cBłąd == BLAD_OK)
 				  {
 					  cBłąd = ZapiszIndeksPomiaruNaKarte(sLicznikPomiarow);		//aktualizuj indeks. skoro zapis danych się udał to indeks też powinien się zapisać
 				  }
+				  cBłąd = WyślijTelemetrieBluetooth(stPomiary);
 				  sLiczbaPomiarów = 0;
 				  sIndeksAnalizy = sIndeksPomiaru = 0;
 			  }
