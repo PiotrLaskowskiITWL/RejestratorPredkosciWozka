@@ -26,7 +26,8 @@ typedef struct
 	float fDroga[LICZBA_CZUJNIKOW];				//droga widziana każdym czujnikiem
 	float fPrędkośćIndywi[LICZBA_CZUJNIKOW];	//prędkość obliczona dla obrotu rolki [m/s] dla indywidualnego magnesu (każdy z osobna)
 	float fPrędkośćWszyst[LICZBA_CZUJNIKOW];	//prędkość obliczona dla obrotu rolki [m/s] dla wszystkich magnesów
-	float fPrzyspieszenie[LICZBA_CZUJNIKOW];	//obliczone przyspieszenie
+	float fPrzyspieszenieIndywi[LICZBA_CZUJNIKOW];	//obliczone przyspieszenie dla indywidualnego magnesu (każdy z osobna)
+	float fPrzyspieszenieWszyst[LICZBA_CZUJNIKOW];	//obliczone przyspieszenie dla wszystkich magnesów
 	float fKalmanDroga;							//droga wózka estymowana przez FK [m]
 	float fKalmanPredkość;						//prędkość wózka estymowana przez FK [m/s]
 	float fKalmanPrzyspieszenie;				//przyspieszenie wózka estymowane przez FK [m/s^2]

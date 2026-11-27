@@ -59,7 +59,8 @@ uint8_t RozpocznijPomiarTimerem(void)
 			stPomiary[n].fDroga[x] = 0.0f;
 			stPomiary[n].fPrędkośćIndywi[x] = 0.0f;
 			stPomiary[n].fPrędkośćWszyst[x] = 0.0f;
-			stPomiary[n].fPrzyspieszenie[x] = 0.0f;
+			stPomiary[n].fPrzyspieszenieIndywi[x] = 0.0f;
+			stPomiary[n].fPrzyspieszenieWszyst[x] = 0.0f;
 			stPomiary[n].fOdlMahalanobisaV[x] = 0.0f;
 			stPomiary[n].cAlgorytm[x] = 0;
 		}
