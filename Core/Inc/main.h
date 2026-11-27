@@ -66,7 +66,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 #define NUMER_WERSJI_REPO		35		//numer wersji w repozytorium: https://github.com/PiotrLaskowskiITWL/RejestratorPredkosciWozka
-#define ROZMIAR_BUF_NAPISOW		255
+#define ROZMIAR_BUF_NAPISOW		260
 #define ROZMIAR_BUF_POMIAROW	2000
 #define LICZBA_CZUJNIKOW		4		//liczba wejść czujników
 #define LICZBA_KANALOW			2		//liczba kanałów pomiarowych. Każdy kanał składa się z 2 czujników

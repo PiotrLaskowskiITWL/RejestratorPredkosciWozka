@@ -268,13 +268,13 @@ uint8_t CzytajIndeksPomiaruZKarty(uint16_t *sIndeksPomiaru)
 ////////////////////////////////////////////////////////////////////////////////
 int FormatujNagłówekDanych(char *cBufor)
 {
-	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
+	for (uint16_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
 		*(cBufor + n) = 0;
 	//wersja dla symetryczne rozłozonych magnesów
 	//return sprintf(cBufor, "Nr\t timer[us]\t IDcz\t Kier1\t Kier2\t Alg1\t Alg2\t Alg3\t Alg4\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t a1[m/s^2]\t a2[m/s^2]\t a3[m/s^2]\t a4[m/s^2]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\r\n");	//\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
 	//return sprintf(cBufor, "Nr\t timer[us]\t IDcz\t Kier1\t Kier2\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t a1[m/s^2]\t a2[m/s^2]\t a3[m/s^2]\t a4[m/s^2]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\r\n");	//\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
-	return sprintf(cBufor, "Nr\t timer[us]\t IDcz\t Kier1\t Kier2\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t a1[m/s^2]\t a2[m/s^2]\t a3[m/s^2]\t a4[m/s^2]\t L[m]\t v[m/s]\t a[m/s^2]\r\n");
-
+	//return sprintf(cBufor, "Nr\t timer[us]\t IDcz\t Kier1\t Kier2\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t a1[m/s^2]\t a2[m/s^2]\t a3[m/s^2]\t a4[m/s^2]\t L[m]\t v[m/s]\t a[m/s^2]\r\n");
+	return sprintf(cBufor, "Nr\t timer[us]\t IDcz\t Kier1\t Kier2\t Czas1\t Czas2\t Czas3\t Czas4\t Mag1\t Mag2\t Mag3\t Mag4\t Alg1\t Alg2\t Alg3\t Alg4\t L1[m]\t L2[m]\t L3[m]\t L4[m]\t v1[m/s]\t v2[m/s]\t v3[m/s]\t v4[m/s]\t a1[m/s^2]\t a2[m/s^2]\t a3[m/s^2]\t a4[m/s^2]\t L[m]\t v[m/s]\t a[m/s^2]\r\n");
 	//wersja z detekcją kierunku dla niesymetrycznue rozlozonych magnesów
 	//return sprintf(cBufor, "Nr\t t1[us]\t v1[m/s]\t t2[us]\t v2[m/s]\t PozBiez2\t PozKoryg2\t Kierunek2\t t3[us]\t v3[m/s]\t t4[us]\t v4[m/s]\t L[m]\t v[m/s]\t a[m/s^2]\t PoslizgL1[m]\t PoslizgL2[m]\t PoslizgL3[m]\t PoslizgL4[m]\t MahalanobisV1[sigma]\t MahalanobisV2[sigma]\t MahalanobisV3[sigma]\t MahalanobisV4[sigma]\r\n");		//wersja z filtrem Kalmana, odległoscią mahalonobisa dla czujnika 1, tabulacją i spacją
 
@@ -297,9 +297,8 @@ int FormatujDanePomiarowe(char *cBufor, uint16_t sIndeks, stPomiary_t *stPomiary
 	char *cZnak;
 	int nRozmiar;
 	char cOpisCzujnika[4];
-	//extern uint8_t cAlgorytmDetekcjiKierunku[4];
 
-	for (uint8_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
+	for (uint16_t n=0; n<ROZMIAR_BUF_NAPISOW; n++)
 		*(cBufor + n) = 0;
 
 	if ((stPomiary->cAktywnyCzujnik == SP_POMIAR_CZUJNIKA1) || (stPomiary->cAktywnyCzujnik == SP_POMIAR_CZUJNIKA2))
@@ -319,17 +318,22 @@ int FormatujDanePomiarowe(char *cBufor, uint16_t sIndeks, stPomiary_t *stPomiary
 	//						        Nr   timer IDcz kie1 kie2 Droga1 Droga2 Droga3 Droga4 v1     v2     v3     v4     a1     a2     a3     a4     kL     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
 	//	nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\t %.3f\r\n",
 	//						        Nr   timer IDcz kie1 kie2 Droga1 Droga2 Droga3 Droga4 v1     v2     v3     v4     a1     a2     a3     a4     kL     kv     ka     błąd1  błąd2  błąd3  błąd4  m1     m2     m3     m4
-		nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\r\n",
+	//	nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\r\n",
+	//						        Nr   timer IDcz kie1 kie2 Czas1 Czas2 Czas3 Czas4 Mag1 Mag2 Mag3 Mag4 Alg1 Alg2 Alg3 Alg4 Droga1 Droga2 Droga3 Droga4 vi1    vi2    vi3    vi4    vw1    vw2    vw3    vw4    a1     a2     a3     a4     kL     kv     ka
+		nRozmiar = sprintf(cBufor, "%u\t %ld\t %s\t %d\t %d\t %ld\t %ld\t %ld\t %ld\t %d\t %d\t %d\t %d\t %d\t %d\t %d\t %d\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.2f\t %.3f\t %.3f\t %.3f\r\n",
 				sIndeks, stPomiary->nZegar, cOpisCzujnika, stPomiary->cKierunekObrotów[0], stPomiary->cKierunekObrotów[1],
-				//stPomiary->cAlgorytm[0], stPomiary->cAlgorytm[1], stPomiary->cAlgorytm[2], stPomiary->cAlgorytm[3],
+				stPomiary->nCzas[0], stPomiary->nCzas[1], stPomiary->nCzas[2], stPomiary->nCzas[3],
+				stPomiary->cIndeksMagnesu[0], stPomiary->cIndeksMagnesu[1], stPomiary->cIndeksMagnesu[2], stPomiary->cIndeksMagnesu[3],
+				stPomiary->cAlgorytm[0], stPomiary->cAlgorytm[1], stPomiary->cAlgorytm[2], stPomiary->cAlgorytm[3],
 				stPomiary->fDroga[0], stPomiary->fDroga[1], stPomiary->fDroga[2], stPomiary->fDroga[3],
-				stPomiary->fPrędkość[0], stPomiary->fPrędkość[1], stPomiary->fPrędkość[2], stPomiary->fPrędkość[3],
+				stPomiary->fPrędkośćIndywi[0], stPomiary->fPrędkośćIndywi[1], stPomiary->fPrędkośćIndywi[2], stPomiary->fPrędkośćIndywi[3],
+				stPomiary->fPrędkośćWszyst[0], stPomiary->fPrędkośćWszyst[1], stPomiary->fPrędkośćWszyst[2], stPomiary->fPrędkośćWszyst[3],
 				stPomiary->fPrzyspieszenie[0], stPomiary->fPrzyspieszenie[1], stPomiary->fPrzyspieszenie[2], stPomiary->fPrzyspieszenie[3],
 				stPomiary->fKalmanDroga, stPomiary->fKalmanPredkość, stPomiary->fKalmanPrzyspieszenie);
 				//stPomiary->fBłądDrogi[0], stPomiary->fBłądDrogi[1], stPomiary->fBłądDrogi[2], stPomiary->fBłądDrogi[3]);
 				//stPomiary->fOdlMahalanobisaV[0], stPomiary->fOdlMahalanobisaV[1], stPomiary->fOdlMahalanobisaV[2], stPomiary->fOdlMahalanobisaV[3]);
 
-	//zamień kropki dziesiętne na przecinki, aby Excell dał radę odczytać dane
+	//zamień kropki dziesiętne na przecinki, aby Excell ustawioną z polską stroną kodową poprawnie interpretował dane jako liczby a nie tekst
 	do
 	{
 		cZnak = strchr(cBufor, '.');

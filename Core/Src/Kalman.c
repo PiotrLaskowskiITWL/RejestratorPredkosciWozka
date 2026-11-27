@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //
 // Filtra Kalmana mierzący prędkości wózka wyrzutni z 4 rolek
-// Zasilany pomiarami drogi, predkości i rzyspieszenia rolek wylicza drogę, prędkość, przyspieszenie oraz błędy drogi (poślizgi) każdej z rolek
+// Zasilany pomiarami drogi, predkości i przyspieszenia rolek wylicza drogę, prędkość, przyspieszenie oraz błędy drogi (poślizgi) każdej z rolek
 //
 // Autor: Piotr Laskowski
 // (c) ITWL 2026
@@ -98,7 +98,6 @@ uint8_t SymulujPrędkościRolek(float *fDrogaRolki1, float *fDrogaRolki2, float 
 		*(fDrogaRolki1 + n) = (n + 1) * OBWOD_ROLKI;
 		fCzasLokalny1 += OBWOD_ROLKI / *(fVRolki1 + n);
 		*(fCzas1 + n) = fCzasLokalny1;
-
 
 		cBłąd = HAL_RNG_GenerateRandomNumber(&hrng, &nRrandom32);	//losuj liczbę
 		*(fVRolki2 + n) = fPredkość + (nRrandom32 & 0xFF) / 10000.0f;
@@ -299,7 +298,10 @@ uint8_t PredykcjaFiltraKalmanaPrędkościRolek7X3Z(float fDeltaCzasu)
 // Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
 // gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
-// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Parametry:
+//	fDroga - zmierzona droga dla rolki 1
+//  fPredkość - prędkość obliczona dla rolki 1
+//  fPrzyspieszenie - przyspieszenie obliczone dla rolki 1
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
@@ -378,12 +380,16 @@ uint8_t AktulizacjaCzujnikiem1FiltraKalmanaPrędkości7X3Z(float fDroga, float f
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // Funkcja aktualizuje stan filtra na podstawie nowego pomiaru prędkości rolki 2
 // Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
 // gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
-// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Parametry:
+//	fDroga - zmierzona droga dla rolki 2
+//  fPredkość - prędkość obliczona dla rolki 2
+//  fPrzyspieszenie - przyspieszenie obliczone dla rolki 2
 // Zwraca: kod błędu
 // Czas wykonania: 748 us na 24 MHz, 190 us na 96 MHz
 ////////////////////////////////////////////////////////////////////////////////
@@ -469,7 +475,10 @@ uint8_t AktulizacjaCzujnikiem2FiltraKalmanaPrędkości7X3Z(float fDroga, float f
 // Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
 // gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
-// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Parametry:
+//	fDroga - zmierzona droga dla rolki 3
+//  fPredkość - prędkość obliczona dla rolki 3
+//  fPrzyspieszenie - przyspieszenie obliczone dla rolki 3
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)
@@ -554,7 +563,10 @@ uint8_t AktulizacjaCzujnikiem3FiltraKalmanaPrędkości7X3Z(float fDroga, float f
 // Estymata_x(n) = Estymata_x(n-1) + K(n) * (z(n) - H * Estymata_x(n-1))
 // gdzie macierz wzmocnienia Kalmana: K(n) = P(n-1) * H^T * (H * P(n-1) * H^T + R(n))^-1
 // Następnie znajduje nową macierz kowariancji P(n) = (I - K(n) * H) * P(n-1) * (I * K(n) * H)^T + K(n) * R(n) * K(n)^T
-// Parametry: fPredkość - prędkość odczytana z rolki 1
+// Parametry:
+//	fDroga - zmierzona droga dla rolki 4
+//  fPredkość - prędkość obliczona dla rolki 4
+//  fPrzyspieszenie - przyspieszenie obliczone dla rolki 4
 // Zwraca: kod błędu
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t AktulizacjaCzujnikiem4FiltraKalmanaPrędkości7X3Z(float fDroga, float fPredkość, float fPrzyspieszenie)

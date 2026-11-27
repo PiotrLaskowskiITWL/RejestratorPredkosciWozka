@@ -32,14 +32,20 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 	uint8_t cPozX, cPoprzednieX = -1;
 
 	nRozmiar = FormatujNagłówekDanych(cBuforTelemetrii);	//nagłówek danych taki sam jak na karcie
-	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
+	assert(nRozmiar < ROZMIAR_BUF_NAPISOW);
+	HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, (uint16_t)nRozmiar, nRozmiar/10);
 
 	//wykonaj obliczenia prędkości dla wszystkich danych
 	for (uint16_t n=0; n<sLiczbaPomiarów; n++)
 	{
 		nRozmiar = FormatujDanePomiarowe(cBuforTelemetrii, n, stPomiary + n);
-		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, nRozmiar, nRozmiar/10);
+		assert(nRozmiar < ROZMIAR_BUF_NAPISOW);
+		HAL_UART_Transmit(&huart1, (uint8_t*)cBuforTelemetrii, (uint16_t)nRozmiar, nRozmiar/10);
 		HAL_Delay(100);	//opóźnienie w wysyłce danych ma zapobiegać zapełnieniu się bufora w terminalu	od 80ms zaczyna byc OK
+
+		//czyść bufor
+		for (uint16_t m=0; m<ROZMIAR_BUF_NAPISOW; m++)
+			cBuforTelemetrii[m] = 0;
 
 		//rysuj pasek postepu na ekranie głównym aby zorientować się w postępie wysyłki telemetrii
 		cPozX = (uint8_t)(n * fWspSkaliX);
@@ -49,6 +55,7 @@ uint8_t WyślijTelemetrieBluetooth(stPomiary_t *stPomiary)
 			OLED_OdswiezEkran();
 			cPoprzednieX = cPozX;
 		}
+
 	}
 	return cBłąd;
 }
